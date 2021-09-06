@@ -15,7 +15,7 @@ public class AppleAppBuilderTask : Task
     private string targetOS = TargetNames.iOS;
 
     /// <summary>
-    /// The Apple OS we are targeting (iOS or tvOS)
+    /// The Apple OS we are targeting (ios, tvos, iossimulator, tvossimulator)
     /// </summary>
     [Required]
     public string TargetOS
@@ -64,7 +64,7 @@ public class AppleAppBuilderTask : Task
     public ITaskItem[] Assemblies { get; set; } = Array.Empty<ITaskItem>();
 
     /// <summary>
-    /// Target arch, can be "arm64" (device) or "x64" (simulator) at the moment
+    /// Target arch, can be "arm64", "arm" or "x64" at the moment
     /// </summary>
     [Required]
     public string Arch { get; set; } = ""!;
@@ -80,6 +80,12 @@ public class AppleAppBuilderTask : Task
     /// </summary>
     [Output]
     public string XcodeProjectPath { get; set; } = ""!;
+
+    /// <summary>
+    /// Path to CMake project directory
+    /// </summary>
+    [Output]
+    public string CMakeProjectDirectory { get; set; } = ""!;
 
     /// <summary>
     /// Path to store build artifacts
@@ -105,6 +111,16 @@ public class AppleAppBuilderTask : Task
     /// Generate xcode project
     /// </summary>
     public bool GenerateXcodeProject { get; set; }
+
+    /// <summary>
+    /// Generate CMake project
+    /// </summary>
+    public bool GenerateCMakeProject { get; set; }
+
+    /// <summary>
+    /// Configure CMake project
+    /// </summary>
+    public bool ConfigureCMakeProject { get; set; }
 
     /// <summary>
     /// Files to be ignored in AppDir
@@ -224,26 +240,37 @@ public class AppleAppBuilderTask : Task
                 throw new ArgumentException("Using DiagnosticPorts require diagnostics_tracing runtime component.");
         }
 
+        var generator = new Xcode(Log, TargetOS, Arch);
+        generator.EnableRuntimeLogging = EnableRuntimeLogging;
+        generator.DiagnosticPorts = DiagnosticPorts;
+
         if (GenerateXcodeProject)
         {
-            Xcode generator = new Xcode(Log, TargetOS, Arch);
-            generator.EnableRuntimeLogging = EnableRuntimeLogging;
-            generator.DiagnosticPorts = DiagnosticPorts;
-
             XcodeProjectPath = generator.GenerateXCode(ProjectName, MainLibraryFileName, assemblerFiles, assemblerFilesToLink,
                 AppDir, binDir, MonoRuntimeHeaders, !isDevice, UseConsoleUITemplate, ForceAOT, ForceInterpreter, InvariantGlobalization, Optimized, RuntimeComponents, NativeMainSource);
+        }
 
-            if (BuildAppBundle)
+        if (GenerateCMakeProject)
+        {
+            CMakeProjectDirectory = generator.GenerateCMake(ProjectName, MainLibraryFileName, assemblerFiles, assemblerFilesToLink,
+                AppDir, binDir, MonoRuntimeHeaders, !isDevice, UseConsoleUITemplate, ForceAOT, ForceInterpreter, InvariantGlobalization, Optimized, RuntimeComponents, NativeMainSource);
+        }
+
+        if (ConfigureCMakeProject)
+        {
+            generator.ConfigureCMake(ProjectName, CMakeProjectDirectory);
+        }
+
+        if (BuildAppBundle)
+        {
+            if (isDevice && string.IsNullOrEmpty(DevTeamProvisioning))
             {
-                if (isDevice && string.IsNullOrEmpty(DevTeamProvisioning))
-                {
-                    // DevTeamProvisioning shouldn't be empty for arm64 builds
-                    Log.LogMessage(MessageImportance.High, "DevTeamProvisioning is not set, BuildAppBundle step is skipped.");
-                }
-                else
-                {
-                    AppBundlePath = generator.BuildAppBundle(XcodeProjectPath, Arch, Optimized, DevTeamProvisioning);
-                }
+                // DevTeamProvisioning shouldn't be empty for arm64 builds
+                Log.LogMessage(MessageImportance.High, "DevTeamProvisioning is not set, BuildAppBundle step is skipped.");
+            }
+            else
+            {
+                AppBundlePath = generator.BuildAppBundle(XcodeProjectPath, Optimized, DevTeamProvisioning);
             }
         }
 

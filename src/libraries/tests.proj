@@ -318,11 +318,60 @@
                       BuildInParallel="false" />
   </ItemGroup>
 
+<!--
+  <ItemGroup Condition="'$(ArchiveTests)' == 'true' and '$(TargetOS)' == 'iOSSimulator'">
+    <ProjectReference Remove="@(ProjectReference)" />
+    <ProjectReference Include="$(RepoRoot)\src\libraries\System.Buffers\tests\System.Buffers.Tests.csproj" />
+    <ProjectReference Include="$(RepoRoot)\src\libraries\System.Runtime.Extensions\tests\System.Runtime.Extensions.Tests.csproj" />
+  </ItemGroup>
+-->
+
   <Target Name="GenerateMergedCoverageReport"
           AfterTargets="Test"
           DependsOnTargets="GenerateCoverageReport"
           Condition="'$(TestAssemblies)' == 'true' and
                      '$(Coverage)' == 'true'" />
+
+  <UsingTask Condition="'$(TargetOS)' == 'MacCatalyst' or '$(TargetOS)' == 'iOS' or '$(TargetOS)' == 'iOSSimulator' or '$(TargetOS)' == 'tvOS' or '$(TargetOS)' == 'tvOSSimulator'"
+             TaskName="AppleAppBuilderTask"
+             AssemblyFile="$(AppleAppBuilderTasksAssemblyPath)" />
+
+  <Target Name="BuildAppBundles"
+          AfterTargets="Build"
+          Condition="'$(ArchiveTests)' == 'true' and ('$(TargetOS)' == 'MacCatalyst' or '$(TargetOS)' == 'iOS' or '$(TargetOS)' == 'iOSSimulator' or '$(TargetOS)' == 'tvOS' or '$(TargetOS)' == 'tvOSSimulator')">
+
+    <ItemGroup>
+      <AppBundles Include="$(AppBundleRoot)/*/AppBundle/CMakeLists.txt" />
+      <CMakeEntries Include="project(AllAppBundles)" />
+      <CMakeEntries Include="add_subdirectory(%(AppBundles.RootDir)%(AppBundles.Directory) %(AppBundles.RecursiveDir) EXCLUDE_FROM_ALL)" />
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(AppBundleRoot)/CMakeLists.txt" Lines="@(CMakeEntries)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+
+    <AppleAppBuilderTask
+        TargetOS="$(TargetOS)"
+        Arch="$(TargetArchitecture)"
+        ProjectName="AllAppBundles"
+        CMakeProjectDirectory="$(AppBundleRoot)"
+        ConfigureCMakeProject="True"
+        AppDir=" "
+        Assemblies=" "
+        MonoRuntimeHeaders=" ">
+    </AppleAppBuilderTask>
+
+    <AppleAppBuilderTask
+        TargetOS="$(TargetOS)"
+        Arch="$(TargetArchitecture)"
+        ProjectName="$([System.IO.Path]::GetDirectoryName(%(AppBundles.RecursiveDir)))"
+        Optimized="True"
+        DevTeamProvisioning="$(DevTeamProvisioning)"
+        XcodeProjectPath="$(AppBundleRoot)/AllAppBundles/%(AppBundles.RecursiveDir)/$([System.IO.Path]::GetDirectoryName($([System.IO.Path]::GetDirectoryName(%(AppBundles.RecursiveDir))))).xcodeproj"
+        BuildAppBundle="True"
+        AppDir=" "
+        Assemblies=" "
+        MonoRuntimeHeaders=" ">
+    </AppleAppBuilderTask>
+  </Target>
 
   <!-- Restoring all trimming test projects upfront in one single call to RestoreTrimmingProjects
   so as to avoid possible race conditions that could happen if we restore each individually. -->

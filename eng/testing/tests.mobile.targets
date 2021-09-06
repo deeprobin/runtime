@@ -7,6 +7,8 @@
 
     <PublishingTestsRun>true</PublishingTestsRun>
     <BundleTestAppTargets>BundleTestAppleApp;BundleTestAndroidApp</BundleTestAppTargets>
+    <PublishDir Condition="'$(ArchiveTests)' == 'true' and '$(IgnoreForCI)' != 'true'">$(AppBundleRoot)$(AssemblyName)</PublishDir>
+    <BundleDir Condition="'$(ArchiveTests)' == 'true' and '$(IgnoreForCI)' != 'true'">$([MSBuild]::NormalizeDirectory('$(PublishDir)', 'AppBundle'))</BundleDir>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(EnableAggressiveTrimming)' == 'true'">
@@ -155,6 +157,8 @@
       <Optimized>true</Optimized>
       <MainLibraryFileName Condition="'$(MainLibraryFileName)' == ''">AppleTestRunner.dll</MainLibraryFileName>
       <_MobileIntermediateOutputPath Condition="'$(RunAOTCompilation)' == 'true'">$(IntermediateOutputPath)mobile</_MobileIntermediateOutputPath>
+      <GenerateCMakeProject Condition="'$(ArchiveTests)' == 'true' and '$(IgnoreForCI)' != 'true'">true</GenerateCMakeProject>
+      <GenerateXcodeProject Condition="'$(GenerateCMakeProject)' != 'true'">true</GenerateXcodeProject>
     </PropertyGroup>
     <PropertyGroup>
       <AOTMode Condition="'$(TargetOS)' != 'MacCatalyst'">Full</AOTMode>
@@ -213,26 +217,29 @@
         ForceInterpreter="$(MonoForceInterpreter)"
         InvariantGlobalization="$(InvariantGlobalization)"
         UseConsoleUITemplate="True"
-        GenerateXcodeProject="True"
-        BuildAppBundle="True"
+        GenerateXcodeProject="$(GenerateXcodeProject)"
+        GenerateCMakeProject="$(GenerateCMakeProject)"
+        BuildAppBundle="$(GenerateXcodeProject)"
         Optimized="$(Optimized)"
         DevTeamProvisioning="$(DevTeamProvisioning)"
         OutputDirectory="$(BundleDir)"
         AppDir="$(PublishDir)">
         <Output TaskParameter="AppBundlePath" PropertyName="AppBundlePath" />
         <Output TaskParameter="XcodeProjectPath" PropertyName="XcodeProjectPath" />
+        <Output TaskParameter="CMakeProjectDirectory" PropertyName="CMakeProjectDirectory" />
     </AppleAppBuilderTask>
-    <Message Importance="High" Text="Xcode: $(XcodeProjectPath)"/>
-    <Message Importance="High" Text="App: $(AppBundlePath)"/>
+    <Message Importance="High" Text="Xcode: $(XcodeProjectPath)" Condition="'$(GenerateXcodeProject)' == 'true'" />
+    <Message Importance="High" Text="CMake: $(CMakeProjectDirectory)" Condition="'$(CMakeProjectPath)' == 'true'" />
+    <Message Importance="High" Text="App: $(AppBundlePath)" Condition="'$(GenerateXcodeProject)' == 'true'"/>
 
-    <ItemGroup>
+    <ItemGroup Condition="'$(GenerateXcodeProject)' == 'true'">
       <_appFiles Include="$(AppBundlePath)/../**/*" />
     </ItemGroup>
 
     <Copy SourceFiles="@(_appFiles)"
           DestinationFolder="$(TestArchiveTestsDir)/%(RecursiveDir)"
           SkipUnchangedFiles="true"
-          Condition="'$(ArchiveTests)' == 'true' and '$(IgnoreForCI)' != 'true'" />
+          Condition="'$(ArchiveTests)' == 'true' and '$(IgnoreForCI)' != 'true' and '$(GenerateXcodeProject)' == 'true'" />
 
     <RemoveDir Condition="'$(ArchiveTests)' == 'true' and '$(IgnoreForCI)' != 'true'" 
                Directories="$(OutDir)" />

@@ -21,33 +21,79 @@ internal class Xcode
     {
         Logger = logger;
         Target = target;
-        XcodeArch = (arch == "x64") ? "x86_64" : arch;
-        switch (Target)
-        {
-            case TargetNames.iOS:
-                SysRoot = Utils.RunProcess(Logger, "xcrun", "--sdk iphoneos --show-sdk-path");
-                break;
-            case TargetNames.iOSsim:
-                SysRoot = Utils.RunProcess(Logger, "xcrun", "--sdk iphonesimulator --show-sdk-path");
-                break;
-            case TargetNames.tvOS:
-                SysRoot = Utils.RunProcess(Logger, "xcrun", "--sdk appletvos --show-sdk-path");
-                break;
-            case TargetNames.tvOSsim:
-                SysRoot = Utils.RunProcess(Logger, "xcrun", "--sdk appletvsimulator --show-sdk-path");
-                break;
-            default:
-                SysRoot = Utils.RunProcess(Logger, "xcrun", "--sdk macosx --show-sdk-path");
-                break;
-        }
-
         RuntimeIdentifier = $"{Target}-{arch}";
+        XcodeArch = arch switch {
+            "x64" => "x86_64",
+            "arm" => "armv7",
+            _ => arch
+        };
+        SysRoot = Target switch {
+            TargetNames.iOS => Utils.RunProcess(Logger, "xcrun", "--sdk iphoneos --show-sdk-path"),
+            TargetNames.iOSsim => Utils.RunProcess(Logger, "xcrun", "--sdk iphonesimulator --show-sdk-path"),
+            TargetNames.tvOS => Utils.RunProcess(Logger, "xcrun", "--sdk appletvos --show-sdk-path"),
+            TargetNames.tvOSsim => Utils.RunProcess(Logger, "xcrun", "--sdk appletvsimulator --show-sdk-path"),
+            _ => Utils.RunProcess(Logger, "xcrun", "--sdk macosx --show-sdk-path")
+        };
     }
 
     public bool EnableRuntimeLogging { get; set; }
     public string? DiagnosticPorts { get; set; } = ""!;
 
     public string GenerateXCode(
+        string projectName,
+        string entryPointLib,
+        IEnumerable<string> asmFiles,
+        IEnumerable<string> asmLinkFiles,
+        string workspace,
+        string binDir,
+        string monoInclude,
+        bool preferDylibs,
+        bool useConsoleUiTemplate,
+        bool forceAOT,
+        bool forceInterpreter,
+        bool invariantGlobalization,
+        bool stripDebugSymbols,
+        string? runtimeComponents=null,
+        string? nativeMainSource = null)
+    {
+        var cmakeDirectoryPath = GenerateCMake(projectName, entryPointLib, asmFiles, asmLinkFiles, workspace, binDir, monoInclude, preferDylibs, useConsoleUiTemplate, forceAOT, forceInterpreter, invariantGlobalization, stripDebugSymbols, runtimeComponents, nativeMainSource);
+        ConfigureCMake(projectName, cmakeDirectoryPath);
+        return Path.Combine(binDir, projectName, projectName + ".xcodeproj");
+    }
+
+    public void ConfigureCMake(string projectName, string cmakeDirectoryPath)
+    {
+        string targetName;
+        switch (Target)
+        {
+            case TargetNames.MacCatalyst:
+                targetName = "Darwin";
+                break;
+            case TargetNames.iOS:
+            case TargetNames.iOSsim:
+                targetName = "iOS";
+                break;
+            case TargetNames.tvOS:
+            case TargetNames.tvOSsim:
+                targetName = "tvOS";
+                break;
+            default:
+                targetName = Target.ToString();
+                break;
+        }
+        var deployTarget = (Target == TargetNames.MacCatalyst) ? " -DCMAKE_OSX_ARCHITECTURES=" + XcodeArch : " -DCMAKE_OSX_DEPLOYMENT_TARGET=10.1";
+        var cmakeArgs = new StringBuilder();
+        cmakeArgs
+            .Append("-S.")
+            .Append(" -B").Append(projectName)
+            .Append(" -GXcode")
+            .Append(" -DCMAKE_SYSTEM_NAME=").Append(targetName)
+            .Append(deployTarget);
+
+        Utils.RunProcess(Logger, "cmake", cmakeArgs.ToString(), workingDir: cmakeDirectoryPath);
+    }
+
+    public string GenerateCMake(
         string projectName,
         string entryPointLib,
         IEnumerable<string> asmFiles,
@@ -174,17 +220,21 @@ internal class Xcode
                 toLink += $"    \"-force_load {lib}\"{Environment.NewLine}";
             }
         }
-
         string aotSources = "";
         string aotList = "";
+
+//
         foreach (string asm in asmFiles)
         {
             // these libraries are linked via modules.m
             var name = Path.GetFileNameWithoutExtension(asm);
-            aotSources += $"add_library({name} OBJECT {asm}){Environment.NewLine}";
-            toLink += $"    {name}{Environment.NewLine}";
-            aotList += $" {name}";
+            aotSources += $"add_library({projectName}_{name} OBJECT {asm}){Environment.NewLine}";
+            toLink += $"    {projectName}_{name}{Environment.NewLine}";
+            aotList += $" {projectName}_{name}";
         }
+//
+
+
 
         foreach (string asmLinkFile in asmLinkFiles)
         {
@@ -252,33 +302,6 @@ internal class Xcode
             File.WriteAllText(Path.Combine(binDir, "app.entitlements"), entitlementsTemplate.Replace("%Entitlements%", ent.ToString()));
         }
 
-        string targetName;
-        switch (Target)
-        {
-            case TargetNames.MacCatalyst:
-                targetName = "Darwin";
-                break;
-            case TargetNames.iOS:
-            case TargetNames.iOSsim:
-                targetName = "iOS";
-                break;
-            case TargetNames.tvOS:
-            case TargetNames.tvOSsim:
-                targetName = "tvOS";
-                break;
-            default:
-                targetName = Target.ToString();
-                break;
-        }
-        var deployTarget = (Target == TargetNames.MacCatalyst) ? " -DCMAKE_OSX_ARCHITECTURES=" + XcodeArch : " -DCMAKE_OSX_DEPLOYMENT_TARGET=10.1";
-        var cmakeArgs = new StringBuilder();
-        cmakeArgs
-            .Append("-S.")
-            .Append(" -B").Append(projectName)
-            .Append(" -GXcode")
-            .Append(" -DCMAKE_SYSTEM_NAME=").Append(targetName)
-            .Append(deployTarget);
-
         File.WriteAllText(Path.Combine(binDir, "runtime.h"),
             Utils.GetEmbeddedResource("runtime.h"));
 
@@ -302,13 +325,11 @@ internal class Xcode
                 .Replace("//%APPLE_RUNTIME_IDENTIFIER%", RuntimeIdentifier)
                 .Replace("%EntryPointLibName%", Path.GetFileName(entryPointLib)));
 
-        Utils.RunProcess(Logger, "cmake", cmakeArgs.ToString(), workingDir: binDir);
-
-        return Path.Combine(binDir, projectName, projectName + ".xcodeproj");
+        return binDir;
     }
 
     public string BuildAppBundle(
-        string xcodePrjPath, string architecture, bool optimized, string? devTeamProvisioning = null)
+        string xcodePrjPath, bool optimized, string? devTeamProvisioning = null)
     {
         string sdk = "";
         var args = new StringBuilder();
@@ -330,29 +351,28 @@ internal class Xcode
                 .Append(" DEVELOPMENT_TEAM=").Append(devTeamProvisioning);
         }
 
-
-        if (architecture == "arm64")
+        if (XcodeArch == "arm64" || XcodeArch == "armv7")
         {
             switch (Target)
             {
                 case TargetNames.iOS:
                     sdk = "iphoneos";
-                    args.Append(" -arch arm64")
+                    args.Append(" -arch " + XcodeArch)
                         .Append(" -sdk ").Append(sdk);
                     break;
                 case TargetNames.iOSsim:
                     sdk = "iphonesimulator";
-                    args.Append(" -arch arm64")
+                    args.Append(" -arch " + XcodeArch)
                         .Append(" -sdk ").Append(sdk);
                     break;
                 case TargetNames.tvOS:
                     sdk = "appletvos";
-                    args.Append(" -arch arm64")
+                    args.Append(" -arch " + XcodeArch)
                         .Append(" -sdk ").Append(sdk);
                     break;
                 case TargetNames.tvOSsim:
                     sdk = "appletvsimulator";
-                    args.Append(" -arch arm64")
+                    args.Append(" -arch " + XcodeArch)
                         .Append(" -sdk ").Append(sdk);
                     break;
                 default:
@@ -372,12 +392,12 @@ internal class Xcode
             {
                 case TargetNames.iOSsim:
                     sdk = "iphonesimulator";
-                    args.Append(" -arch x86_64")
+                    args.Append(" -arch " + XcodeArch)
                         .Append(" -sdk ").Append(sdk);
                     break;
                 case TargetNames.tvOSsim:
                     sdk = "appletvsimulator";
-                    args.Append(" -arch x86_64")
+                    args.Append(" -arch " + XcodeArch)
                         .Append(" -sdk ").Append(sdk);
                     break;
                 default:
