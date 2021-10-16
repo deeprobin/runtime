@@ -75,12 +75,12 @@ namespace System.IO
                 : (FileAttributes)data.dwFileAttributes;
         }
 
-        public static FileAttributes GetAttributes(SafeFileHandle handle)
+        public static FileAttributes GetAttributes(SafeFileHandle fileHandle)
         {
             Interop.Kernel32.WIN32_FILE_ATTRIBUTE_DATA data = default;
-            int errorCode = FillAttributeInfo(handle, ref data, true);
+            int errorCode = FillAttributeInfo(fileHandle.Path, ref data, true);
             return errorCode != 0
-                ? throw Win32Marshal.GetExceptionForWin32Error(errorCode, handle.Path)
+                ? throw Win32Marshal.GetExceptionForWin32Error(errorCode, fileHandle.Path)
                 : (FileAttributes)data.dwFileAttributes;
         }
 
@@ -91,12 +91,12 @@ namespace System.IO
             return errorCode != 0 ? throw Win32Marshal.GetExceptionForWin32Error(errorCode, fullPath) : data.ftCreationTime.ToDateTimeOffset();
         }
 
-        public static DateTimeOffset GetCreationTime(SafeFileHandle handle)
+        public static DateTimeOffset GetCreationTime(SafeFileHandle fileHandle)
         {
             Interop.Kernel32.WIN32_FILE_ATTRIBUTE_DATA data = default;
-            int errorCode = FillAttributeInfo(handle, ref data, false);
+            int errorCode = FillAttributeInfo(fileHandle.Path, ref data, false);
             return errorCode != 0
-                ? throw Win32Marshal.GetExceptionForWin32Error(errorCode, handle.Path)
+                ? throw Win32Marshal.GetExceptionForWin32Error(errorCode, fileHandle.Path)
                 : data.ftCreationTime.ToDateTimeOffset();
         }
 
@@ -116,12 +116,12 @@ namespace System.IO
                 : data.ftLastAccessTime.ToDateTimeOffset();
         }
 
-        public static DateTimeOffset GetLastAccessTime(SafeFileHandle handle)
+        public static DateTimeOffset GetLastAccessTime(SafeFileHandle fileHandle)
         {
             Interop.Kernel32.WIN32_FILE_ATTRIBUTE_DATA data = default;
-            int errorCode = FillAttributeInfo(handle, ref data, false);
+            int errorCode = FillAttributeInfo(fileHandle.Path, ref data, false);
             return errorCode != 0
-                ? throw Win32Marshal.GetExceptionForWin32Error(errorCode, handle.Path)
+                ? throw Win32Marshal.GetExceptionForWin32Error(errorCode, fileHandle.Path)
                 : data.ftLastAccessTime.ToDateTimeOffset();
         }
 
@@ -134,12 +134,12 @@ namespace System.IO
                 : data.ftLastWriteTime.ToDateTimeOffset();
         }
 
-        public static DateTimeOffset GetLastWriteTime(SafeFileHandle handle)
+        public static DateTimeOffset GetLastWriteTime(SafeFileHandle fileHandle)
         {
             Interop.Kernel32.WIN32_FILE_ATTRIBUTE_DATA data = default;
-            int errorCode = FillAttributeInfo(handle, ref data, false);
+            int errorCode = FillAttributeInfo(fileHandle.Path, ref data, false);
             return errorCode != 0
-                ? throw Win32Marshal.GetExceptionForWin32Error(errorCode, handle.Path)
+                ? throw Win32Marshal.GetExceptionForWin32Error(errorCode, fileHandle.Path)
                 : data.ftLastWriteTime.ToDateTimeOffset();
         }
 
@@ -400,15 +400,15 @@ namespace System.IO
             throw Win32Marshal.GetExceptionForWin32Error(errorCode, fullPath);
         }
 
-        public static void SetAttributes(SafeFileHandle handle, FileAttributes attributes)
+        public static void SetAttributes(SafeFileHandle fileHandle, FileAttributes attributes)
         {
-            if (handle.Path is { } path)
+            if (fileHandle.Path is { } path)
             {
                 SetAttributes(path, attributes);
             }
             else
             {
-                throw new IOException($"Underlying file handle has no {nameof(handle.Path)}");
+                throw new IOException($"Underlying file handle has no {nameof(fileHandle.Path)}");
             }
         }
 
@@ -427,7 +427,8 @@ namespace System.IO
         }
 
         private static unsafe void SetFileTime(
-            SafeFileHandle handle, long creationTime = -1,
+            SafeFileHandle fileHandle,
+            long creationTime = -1,
             long lastAccessTime = -1,
             long lastWriteTime = -1,
             long changeTime = -1,
@@ -442,9 +443,9 @@ namespace System.IO
                 FileAttributes = fileAttributes
             };
 
-            if (!Interop.Kernel32.SetFileInformationByHandle(handle, Interop.Kernel32.FileBasicInfo, &basicInfo, (uint)sizeof(Interop.Kernel32.FILE_BASIC_INFO)))
+            if (!Interop.Kernel32.SetFileInformationByHandle(fileHandle, Interop.Kernel32.FileBasicInfo, &basicInfo, (uint)sizeof(Interop.Kernel32.FILE_BASIC_INFO)))
             {
-                throw Win32Marshal.GetExceptionForLastWin32Error(handle.Path);
+                throw Win32Marshal.GetExceptionForLastWin32Error(fileHandle.Path);
             }
         }
 
