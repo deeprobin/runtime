@@ -611,7 +611,7 @@ namespace System.IO
         {
             if (fileHandle.Path is { } path)
             {
-                GetLastAccessTime(path, time, false);
+                SetLastAccessTime(path, time, false);
             }
             else
             {
