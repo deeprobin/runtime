@@ -140,44 +140,86 @@ namespace System.IO
         public static void SetCreationTime(string path, DateTime creationTime)
             => FileSystem.SetCreationTime(Path.GetFullPath(path), creationTime, asDirectory: false);
 
+        public static void SetCreationTime(SafeFileHandle fileHandle, DateTime creationTime)
+            => FileSystem.SetCreationTime(fileHandle, creationTime);
+
         public static void SetCreationTimeUtc(string path, DateTime creationTimeUtc)
             => FileSystem.SetCreationTime(Path.GetFullPath(path), GetUtcDateTimeOffset(creationTimeUtc), asDirectory: false);
+
+        public static void SetCreationTimeUtc(SafeFileHandle fileHandle, DateTime creationTimeUtc)
+            => FileSystem.SetCreationTime(fileHandle, GetUtcDateTimeOffset(creationTimeUtc));
 
         public static DateTime GetCreationTime(string path)
             => FileSystem.GetCreationTime(Path.GetFullPath(path)).LocalDateTime;
 
+        public static DateTime GetCreationTime(SafeFileHandle fileHandle)
+            => FileSystem.GetCreationTime(fileHandle).LocalDateTime;
+
         public static DateTime GetCreationTimeUtc(string path)
             => FileSystem.GetCreationTime(Path.GetFullPath(path)).UtcDateTime;
 
+        public static DateTime GetCreationTimeUtc(SafeFileHandle fileHandle)
+            => FileSystem.GetCreationTime(fileHandle).UtcDateTime;
+
         public static void SetLastAccessTime(string path, DateTime lastAccessTime)
-            => FileSystem.SetLastAccessTime(Path.GetFullPath(path), lastAccessTime, asDirectory: false);
+            => FileSystem.SetLastAccessTime(Path.GetFullPath(path), lastAccessTime, false);
+
+        public static void SetLastAccessTime(SafeFileHandle fileHandle, DateTime lastAccessTime)
+            => FileSystem.SetLastAccessTime(fileHandle, lastAccessTime);
 
         public static void SetLastAccessTimeUtc(string path, DateTime lastAccessTimeUtc)
-            => FileSystem.SetLastAccessTime(Path.GetFullPath(path), GetUtcDateTimeOffset(lastAccessTimeUtc), asDirectory: false);
+            => FileSystem.SetLastAccessTime(Path.GetFullPath(path), GetUtcDateTimeOffset(lastAccessTimeUtc), false);
+
+        public static void SetLastAccessTimeUtc(SafeFileHandle fileHandle, DateTime lastAccessTimeUtc)
+            => FileSystem.SetLastAccessTime(fileHandle, GetUtcDateTimeOffset(lastAccessTimeUtc));
 
         public static DateTime GetLastAccessTime(string path)
             => FileSystem.GetLastAccessTime(Path.GetFullPath(path)).LocalDateTime;
 
+        public static DateTime GetLastAccessTime(SafeFileHandle fileHandle)
+            => FileSystem.GetLastAccessTime(fileHandle).LocalDateTime;
+
         public static DateTime GetLastAccessTimeUtc(string path)
             => FileSystem.GetLastAccessTime(Path.GetFullPath(path)).UtcDateTime;
 
+        public static DateTime GetLastAccessTimeUtc(SafeFileHandle fileHandle)
+            => FileSystem.GetLastAccessTime(fileHandle).UtcDateTime;
+
         public static void SetLastWriteTime(string path, DateTime lastWriteTime)
-            => FileSystem.SetLastWriteTime(Path.GetFullPath(path), lastWriteTime, asDirectory: false);
+            => FileSystem.SetLastWriteTime(Path.GetFullPath(path), lastWriteTime, false);
+
+        public static void SetLastWriteTime(SafeFileHandle handle, DateTime lastWriteTime)
+            => FileSystem.SetLastWriteTime(handle, lastWriteTime);
 
         public static void SetLastWriteTimeUtc(string path, DateTime lastWriteTimeUtc)
-            => FileSystem.SetLastWriteTime(Path.GetFullPath(path), GetUtcDateTimeOffset(lastWriteTimeUtc), asDirectory: false);
+            => FileSystem.SetLastWriteTime(Path.GetFullPath(path), GetUtcDateTimeOffset(lastWriteTimeUtc), false);
+
+        public static void SetLastWriteTimeUtc(SafeFileHandle fileHandle, DateTime lastWriteTimeUtc)
+            => FileSystem.SetLastWriteTime(fileHandle, GetUtcDateTimeOffset(lastWriteTimeUtc));
 
         public static DateTime GetLastWriteTime(string path)
             => FileSystem.GetLastWriteTime(Path.GetFullPath(path)).LocalDateTime;
 
+        public static DateTime GetLastWriteTime(SafeFileHandle fileHandle)
+            => FileSystem.GetLastWriteTime(fileHandle).LocalDateTime;
+
         public static DateTime GetLastWriteTimeUtc(string path)
             => FileSystem.GetLastWriteTime(Path.GetFullPath(path)).UtcDateTime;
+
+        public static DateTime GetLastWriteTimeUtc(SafeFileHandle fileHandle)
+            => FileSystem.GetLastWriteTime(fileHandle).UtcDateTime;
 
         public static FileAttributes GetAttributes(string path)
             => FileSystem.GetAttributes(Path.GetFullPath(path));
 
+        public static FileAttributes GetAttributes(SafeFileHandle fileHandle)
+            => FileSystem.GetAttributes(fileHandle);
+
         public static void SetAttributes(string path, FileAttributes fileAttributes)
             => FileSystem.SetAttributes(Path.GetFullPath(path), fileAttributes);
+
+        public static void SetAttributes(SafeFileHandle fileHandle, FileAttributes fileAttributes)
+            => FileSystem.SetAttributes(fileHandle, fileAttributes);
 
         public static FileStream OpenRead(string path)
             => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -209,13 +251,15 @@ namespace System.IO
         public static byte[] ReadAllBytes(string path)
         {
             // bufferSize == 1 used to avoid unnecessary buffer in FileStream
-            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1, FileOptions.SequentialScan))
+            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1,
+                FileOptions.SequentialScan))
             {
                 long fileLength = 0;
                 if (fs.CanSeek && (fileLength = fs.Length) > int.MaxValue)
                 {
                     throw new IOException(SR.IO_FileTooLong2GB);
                 }
+
                 if (fileLength == 0)
                 {
                     // Some file systems (e.g. procfs on Linux) return 0 for length even when there's content; also there is non-seekable file stream.
