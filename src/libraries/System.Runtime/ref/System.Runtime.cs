@@ -4965,11 +4965,23 @@ namespace System
     {
         protected ObjectDisposedException(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context) { }
         public ObjectDisposedException(string? objectName) { }
+		public ObjectDisposedException(object instance) { }
+		public ObjectDisposedException(Type type) { }
         public ObjectDisposedException(string? message, System.Exception? innerException) { }
         public ObjectDisposedException(string? objectName, string? message) { }
         public override string Message { get { throw null; } }
         public string ObjectName { get { throw null; } }
         public override void GetObjectData(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context) { }
+		[System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute]
+        [System.Diagnostics.StackTraceHidden]
+        public static void Throw(System.Object instance) => throw null;
+        [System.Diagnostics.StackTraceHidden]
+        [System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute]
+        public static void Throw(System.Type type) => throw null;
+        [System.Diagnostics.StackTraceHidden]
+		public static void ThrowIf([DoesNotReturnIf(true)] bool condition, object instance) => throw null;
+        [System.Diagnostics.StackTraceHidden]
+        public static void ThrowIf([DoesNotReturnIf(true)] bool condition, Type type) => throw null;
     }
     [System.AttributeUsageAttribute(System.AttributeTargets.Class | System.AttributeTargets.Constructor | System.AttributeTargets.Delegate | System.AttributeTargets.Enum | System.AttributeTargets.Event | System.AttributeTargets.Field | System.AttributeTargets.Interface | System.AttributeTargets.Method | System.AttributeTargets.Property | System.AttributeTargets.Struct, Inherited=false)]
     public sealed partial class ObsoleteAttribute : System.Attribute
