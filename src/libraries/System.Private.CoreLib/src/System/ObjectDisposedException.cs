@@ -1,6 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 
@@ -69,5 +71,27 @@ namespace System
         }
 
         public string ObjectName => _objectName ?? string.Empty;
+
+        [DoesNotReturn]
+        [StackTraceHidden]
+        public static void Throw(Type type) => throw new ObjectDisposedException(type.Name);
+
+        [StackTraceHidden]
+        public static void ThrowIf([DoesNotReturnIf(true)] bool condition, Type type)
+        {
+            if (!condition) return;
+            Throw(type);
+        }
+
+        [DoesNotReturn]
+        [StackTraceHidden]
+        public static void Throw(object instance) => throw new ObjectDisposedException(instance.GetType().Name);
+
+        [StackTraceHidden]
+        public static void ThrowIf([DoesNotReturnIf(true)] bool condition, object instance)
+        {
+            if (!condition) return;
+            Throw(instance);
+        }
     }
 }
