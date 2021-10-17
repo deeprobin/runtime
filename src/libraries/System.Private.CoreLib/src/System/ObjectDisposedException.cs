@@ -28,6 +28,14 @@ namespace System
         {
         }
 
+        public ObjectDisposedException(object instance)
+        {
+        }
+
+        public ObjectDisposedException(Type type)
+        {
+        }
+
         public ObjectDisposedException(string? objectName, string? message) : base(message)
         {
             HResult = HResults.COR_E_OBJECTDISPOSED;
@@ -74,7 +82,7 @@ namespace System
 
         [DoesNotReturn]
         [StackTraceHidden]
-        public static void Throw(Type type) => throw new ObjectDisposedException(type.Name);
+        public static void Throw(Type type) => throw new ObjectDisposedException(type);
 
         [StackTraceHidden]
         public static void ThrowIf([DoesNotReturnIf(true)] bool condition, Type type)
@@ -85,7 +93,7 @@ namespace System
 
         [DoesNotReturn]
         [StackTraceHidden]
-        public static void Throw(object instance) => throw new ObjectDisposedException(instance.GetType().Name);
+        public static void Throw(object instance) => throw new ObjectDisposedException(instance);
 
         [StackTraceHidden]
         public static void ThrowIf([DoesNotReturnIf(true)] bool condition, object instance)
