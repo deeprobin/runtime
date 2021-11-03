@@ -517,7 +517,7 @@ namespace System.IO
         public static FileAttributes GetAttributes(SafeFileHandle fileHandle)
         {
             ThrowHelper.ThrowForMissingPath_SafeFileHandle(fileHandle.Path);
-            return GetAttributes(fileHandle!.Path);
+            return GetAttributes(fileHandle.Path!);
         }
 
         public static void SetAttributes(string fullPath, FileAttributes attributes)
@@ -528,7 +528,7 @@ namespace System.IO
         public static void SetAttributes(SafeFileHandle fileHandle, FileAttributes attributes)
         {
             ThrowHelper.ThrowForMissingPath_SafeFileHandle(fileHandle.Path);
-            SetAttributes(fileHandle!.Path, attributes);
+            SetAttributes(fileHandle.Path!, attributes);
         }
 
         public static DateTimeOffset GetCreationTime(string fullPath)
@@ -539,7 +539,7 @@ namespace System.IO
         public static DateTimeOffset GetCreationTime(SafeFileHandle fileHandle)
         {
             ThrowHelper.ThrowForMissingPath_SafeFileHandle(fileHandle.Path);
-            return GetCreationTime(fileHandle!.Path);
+            return GetCreationTime(fileHandle.Path!);
         }
 
         public static void SetCreationTime(string fullPath, DateTimeOffset time, bool asDirectory)
@@ -554,7 +554,7 @@ namespace System.IO
         public static void SetCreationTime(SafeFileHandle fileHandle, DateTimeOffset time)
         {
             ThrowHelper.ThrowForMissingPath_SafeFileHandle(fileHandle.Path);
-            SetCreationTime(fileHandle!.Path, time, false);
+            SetCreationTime(fileHandle.Path!, time, false);
         }
 
         public static DateTimeOffset GetLastAccessTime(string fullPath)
@@ -565,7 +565,7 @@ namespace System.IO
         public static DateTimeOffset GetLastAccessTime(SafeFileHandle fileHandle)
         {
             ThrowHelper.ThrowForMissingPath_SafeFileHandle(fileHandle.Path);
-            return GetLastAccessTime(fileHandle!.Path);
+            return GetLastAccessTime(fileHandle.Path!);
         }
 
         public static void SetLastAccessTime(string fullPath, DateTimeOffset time, bool asDirectory)
@@ -580,7 +580,7 @@ namespace System.IO
         public static void SetLastAccessTime(SafeFileHandle fileHandle, DateTimeOffset time)
         {
             ThrowHelper.ThrowForMissingPath_SafeFileHandle(fileHandle.Path);
-            SetLastAccessTime(fileHandle!.Path, time, false);
+            SetLastAccessTime(fileHandle.Path!, time, false);
         }
 
         public static DateTimeOffset GetLastWriteTime(string fullPath)
@@ -591,7 +591,7 @@ namespace System.IO
         public static DateTimeOffset GetLastWriteTime(SafeFileHandle fileHandle)
         {
             ThrowHelper.ThrowForMissingPath_SafeFileHandle(fileHandle.Path);
-            return GetLastWriteTime(fileHandle!.Path);
+            return GetLastWriteTime(fileHandle.Path!);
         }
 
         public static void SetLastWriteTime(string fullPath, DateTimeOffset time, bool asDirectory)
@@ -606,7 +606,7 @@ namespace System.IO
         public static void SetLastWriteTime(SafeFileHandle fileHandle, DateTimeOffset time)
         {
             ThrowHelper.ThrowForMissingPath_SafeFileHandle(fileHandle.Path);
-            SetLastWriteTime(fileHandle!.Path, time, false);
+            SetLastWriteTime(fileHandle.Path!, time, false);
         }
 
         public static string[] GetLogicalDrives()
