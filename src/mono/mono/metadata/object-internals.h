@@ -176,10 +176,13 @@ struct _MonoArray {
 };
 
 /* match the layout of the managed definition of Span<T> */
-typedef struct {
-	MonoObject** _pointer;
-	int32_t _length;
-} MonoSpanOfObjects;
+#define MONO_DEFINE_SPAN_OF_T(name, type)	\
+	typedef struct {	\
+		type* _pointer;	\
+		uint32_t _length;	\
+	} name;
+
+MONO_DEFINE_SPAN_OF_T (MonoSpanOfObjects, MonoObject*)
 
 #define MONO_SIZEOF_MONO_ARRAY (MONO_STRUCT_OFFSET_CONSTANT (MonoArray, vector))
 
@@ -284,7 +287,7 @@ mono_handle_array_get_bounds_dim (MonoArrayHandle arr, gint32 dim, MonoArrayBoun
 
 #define mono_span_length(span) (span->_length)
 
-#define mono_span_get(span,type,idx) (type)(!span->_pointer ? NULL : span->_pointer[idx])
+#define mono_span_get(span,type,idx) (type)(!span->_pointer ? (type)0 : span->_pointer[idx])
 
 #define mono_span_addr(span,type,idx) (type*)(span->_pointer + idx)
 
@@ -678,6 +681,7 @@ typedef struct {
 	// Same as compile_method, but returns a MonoFtnDesc in llvmonly mode
 	gpointer (*get_ftnptr)(MonoMethod *method, MonoError *error);
 	void (*interp_jit_info_foreach)(InterpJitInfoFunc func, gpointer user_data);
+	gboolean (*interp_sufficient_stack)(gsize size);
 } MonoRuntimeCallbacks;
 
 typedef gboolean (*MonoInternalStackWalk) (MonoStackFrameInfo *frame, MonoContext *ctx, gpointer data);

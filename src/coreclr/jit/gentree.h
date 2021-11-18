@@ -21,13 +21,13 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 #include "vartype.h"   // For "var_types"
 #include "target.h"    // For "regNumber"
 #include "ssaconfig.h" // For "SsaConfig::RESERVED_SSA_NUM"
-#include "reglist.h"
 #include "valuenumtype.h"
 #include "jitstd.h"
 #include "jithashtable.h"
 #include "simd.h"
 #include "namedintrinsiclist.h"
 #include "layout.h"
+#include "debuginfo.h"
 
 // Debugging GenTree is much easier if we add a magic virtual function to make the debugger able to figure out what type
 // it's got. This is enabled by default in DEBUG. To enable it in RET builds (temporarily!), you need to change the
@@ -527,9 +527,10 @@ enum GenTreeFlags : unsigned int
 
     GTF_RELOP_NAN_UN            = 0x80000000, // GT_<relop> -- Is branch taken if ops are NaN?
     GTF_RELOP_JMP_USED          = 0x40000000, // GT_<relop> -- result of compare used for jump or ?:
-    GTF_RELOP_QMARK             = 0x20000000, // GT_<relop> -- the node is the condition for ?:
     GTF_RELOP_ZTT               = 0x08000000, // GT_<relop> -- Loop test cloned for converting while-loops into do-while
                                               //               with explicit "loop test" in the header block.
+    GTF_RELOP_SJUMP_OPT         = 0x04000000, // GT_<relop> -- Swap signed jl/jge with js/jns during emitter, reuses flags 
+                                              //               from previous instruction.
 
     GTF_JCMP_EQ                 = 0x80000000, // GTF_JCMP_EQ  -- Branch on equal rather than not equal
     GTF_JCMP_TST                = 0x40000000, // GTF_JCMP_TST -- Use bit test instruction rather than compare against zero instruction
@@ -1876,7 +1877,7 @@ public:
     static unsigned char s_gtTrueSizes[];
 #endif
 #if COUNT_AST_OPERS
-    static LONG s_gtNodeCounts[];
+    static unsigned s_gtNodeCounts[];
 #endif
 
     static void InitNodeSize();
@@ -2831,7 +2832,6 @@ class GenTreeUseEdgeIterator final
 
     // Advance functions for special nodes
     void AdvanceCmpXchg();
-    void AdvanceBoundsChk();
     void AdvanceArrElem();
     void AdvanceArrOffset();
     void AdvanceDynBlk();
@@ -3028,6 +3028,13 @@ struct GenTreeOp : public GenTreeUnOp
     {
     }
 #endif
+
+    // True if this relop is marked for a transform during the emitter
+    // phase, e.g., jge => jns
+    bool MarkedForSignJumpOpt() const
+    {
+        return (gtFlags & GTF_RELOP_SJUMP_OPT) != 0;
+    }
 };
 
 struct GenTreeVal : public GenTree
@@ -4245,11 +4252,6 @@ struct GenTreeCall final : public GenTree
         return UseList(gtCallLateArgs);
     }
 
-#if !FEATURE_FIXED_OUT_ARGS
-    int     regArgListCount;
-    regList regArgList;
-#endif
-
 #ifdef DEBUG
     // Used to register callsites with the EE
     CORINFO_SIG_INFO* callSig;
@@ -4867,6 +4869,11 @@ struct GenTreeCall final : public GenTree
 
     // IL offset of the call wrt its parent method.
     IL_OFFSET gtRawILOffset;
+
+    // In DEBUG we report even non inline candidates in the inline tree in
+    // fgNoteNonInlineCandidate. We need to keep around the inline context for
+    // this as normally it's part of the candidate info.
+    class InlineContext* gtInlineContext;
 #endif // defined(DEBUG) || defined(INLINE_DATA)
 
     bool IsHelperCall() const
@@ -5481,39 +5488,38 @@ public:
 // - the "kind" of the throw block to branch to on failure
 // It generates no result.
 
-struct GenTreeBoundsChk : public GenTree
+struct GenTreeBoundsChk : public GenTreeOp
 {
-    GenTree* gtIndex;  // The index expression.
-    GenTree* gtArrLen; // An expression for the length of the array being indexed.
-
     BasicBlock*     gtIndRngFailBB; // Basic block to jump to for array-index-out-of-range
     SpecialCodeKind gtThrowKind;    // Kind of throw block to branch to on failure
 
     GenTreeBoundsChk(genTreeOps oper, var_types type, GenTree* index, GenTree* arrLen, SpecialCodeKind kind)
-        : GenTree(oper, type), gtIndex(index), gtArrLen(arrLen), gtIndRngFailBB(nullptr), gtThrowKind(kind)
+        : GenTreeOp(oper, type, index, arrLen), gtIndRngFailBB(nullptr), gtThrowKind(kind)
     {
-        // Effects flags propagate upwards.
-        gtFlags |= (index->gtFlags & GTF_ALL_EFFECT);
-        gtFlags |= (arrLen->gtFlags & GTF_ALL_EFFECT);
         gtFlags |= GTF_EXCEPT;
     }
 #if DEBUGGABLE_GENTREE
-    GenTreeBoundsChk() : GenTree()
+    GenTreeBoundsChk() : GenTreeOp()
     {
     }
 #endif
 
-    // If the gtArrLen is really an array length, returns array reference, else "NULL".
+    // If this check is against GT_ARR_LENGTH, returns array reference, else "NULL".
     GenTree* GetArray()
     {
-        if (gtArrLen->OperGet() == GT_ARR_LENGTH)
-        {
-            return gtArrLen->AsArrLen()->ArrRef();
-        }
-        else
-        {
-            return nullptr;
-        }
+        return GetArrayLength()->OperIs(GT_ARR_LENGTH) ? GetArrayLength()->AsArrLen()->ArrRef() : nullptr;
+    }
+
+    // The index expression.
+    GenTree* GetIndex()
+    {
+        return gtOp1;
+    }
+
+    // An expression for the length of the array being indexed.
+    GenTree* GetArrayLength()
+    {
+        return gtOp2;
     }
 };
 
@@ -6134,18 +6140,17 @@ struct GenTreeRetExpr : public GenTree
 #endif
 };
 
-class InlineContext;
-
+// In LIR there are no longer statements so debug information is inserted linearly using these nodes.
 struct GenTreeILOffset : public GenTree
 {
-    IL_OFFSETX gtStmtILoffsx; // instr offset (if available)
+    DebugInfo gtStmtDI; // debug info
 #ifdef DEBUG
     IL_OFFSET gtStmtLastILoffs; // instr offset at end of stmt
 #endif
 
-    GenTreeILOffset(IL_OFFSETX offset DEBUGARG(IL_OFFSET lastOffset = BAD_IL_OFFSET))
+    GenTreeILOffset(const DebugInfo& di DEBUGARG(IL_OFFSET lastOffset = BAD_IL_OFFSET))
         : GenTree(GT_IL_OFFSET, TYP_VOID)
-        , gtStmtILoffsx(offset)
+        , gtStmtDI(di)
 #ifdef DEBUG
         , gtStmtLastILoffs(lastOffset)
 #endif
@@ -6218,13 +6223,11 @@ public:
 struct Statement
 {
 public:
-    Statement(GenTree* expr, IL_OFFSETX offset DEBUGARG(unsigned stmtID))
+    Statement(GenTree* expr DEBUGARG(unsigned stmtID))
         : m_rootNode(expr)
         , m_treeList(nullptr)
         , m_next(nullptr)
         , m_prev(nullptr)
-        , m_inlineContext(nullptr)
-        , m_ILOffsetX(offset)
 #ifdef DEBUG
         , m_lastILOffset(BAD_IL_OFFSET)
         , m_stmtID(stmtID)
@@ -6267,24 +6270,15 @@ public:
         return GenTreeList(GetTreeList());
     }
 
-    InlineContext* GetInlineContext() const
+    const DebugInfo& GetDebugInfo() const
     {
-        return m_inlineContext;
+        return m_debugInfo;
     }
 
-    void SetInlineContext(InlineContext* inlineContext)
+    void SetDebugInfo(const DebugInfo& di)
     {
-        m_inlineContext = inlineContext;
-    }
-
-    IL_OFFSETX GetILOffsetX() const
-    {
-        return m_ILOffsetX;
-    }
-
-    void SetILOffsetX(IL_OFFSETX offsetX)
-    {
-        m_ILOffsetX = offsetX;
+        m_debugInfo = di;
+        di.Validate();
     }
 
 #ifdef DEBUG
@@ -6365,9 +6359,7 @@ private:
     Statement* m_next;
     Statement* m_prev;
 
-    InlineContext* m_inlineContext; // The inline context for this statement.
-
-    IL_OFFSETX m_ILOffsetX; // The instr offset (if available).
+    DebugInfo m_debugInfo;
 
 #ifdef DEBUG
     IL_OFFSET m_lastILOffset; // The instr offset at the end of this statement.
