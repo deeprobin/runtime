@@ -621,6 +621,17 @@ INST3(lzcnt,            "lzcnt",            IUM_WR, BAD_CODE,     BAD_CODE,     
 // POPCNT
 INST3(popcnt,           "popcnt",           IUM_WR, BAD_CODE,     BAD_CODE,     SSEFLT(0xB8),                            Resets_OF      | Resets_SF     | Writes_ZF     | Resets_AF     | Resets_PF     | Resets_CF )
 
+// SHA1
+INST3(sha1rnds4,        "sha1rnds4",       IUM_WR, BAD_CODE,     BAD_CODE,  0xcc,                                        Undefined_OF   | Undefined_SF  | Writes_ZF     | Undefined_AF  | Undefined_PF  | Writes_CF )
+INST2(sha1nexte,        "sha1nexte",       IUM_WR, BAD_CODE,     0xc8,      Undefined_OF   | Undefined_SF  | Writes_ZF     | Undefined_AF  | Undefined_PF  | Writes_CF )
+INST2(sha1msg1,         "sha1msg1",        IUM_WR, BAD_CODE,     0xc9,      Undefined_OF   | Undefined_SF  | Writes_ZF     | Undefined_AF  | Undefined_PF  | Writes_CF )
+INST2(sha1msg2,         "sha1msg2",        IUM_WR, BAD_CODE,     0xca,      Undefined_OF   | Undefined_SF  | Writes_ZF     | Undefined_AF  | Undefined_PF  | Writes_CF )
+
+// SHA256
+INST3(sha256rnds2,      "sha256rnds2",     IUM_WR, BAD_CODE,     BAD_CODE,  0xcb,      Undefined_OF   | Undefined_SF  | Writes_ZF     | Undefined_AF  | Undefined_PF  | Writes_CF )
+INST2(sha256msg1,       "sha256msg1",      IUM_WR, BAD_CODE,     0xcc,      Undefined_OF   | Undefined_SF  | Writes_ZF     | Undefined_AF  | Undefined_PF  | Writes_CF )
+INST2(sha256msg2,       "sha256msg1",      IUM_WR, BAD_CODE,     0xcd,      Undefined_OF   | Undefined_SF  | Writes_ZF     | Undefined_AF  | Undefined_PF  | Writes_CF )
+
 //    id                nm                  um      mr            mi                                                     flags
 INST2(ret,              "ret",              IUM_RD, 0x0000C3,     0x0000C2,                                              INS_FLAGS_None )
 INST2(loop,             "loop",             IUM_RD, BAD_CODE,     0x0000E2,                                              INS_FLAGS_None )
