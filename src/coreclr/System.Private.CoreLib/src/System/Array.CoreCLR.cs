@@ -19,7 +19,6 @@ namespace System
 
         // Copies length elements from sourceArray, starting at index 0, to
         // destinationArray, starting at index 0.
-        //
         public static unsafe void Copy(Array? sourceArray, Array? destinationArray, int length)
         {
             if (sourceArray == null)
@@ -52,7 +51,6 @@ namespace System
 
         // Copies length elements from sourceArray, starting at sourceIndex, to
         // destinationArray, starting at destinationIndex.
-        //
         public static unsafe void Copy(Array? sourceArray, int sourceIndex, Array? destinationArray, int destinationIndex, int length)
         {
             if (sourceArray != null && destinationArray != null)
@@ -187,7 +185,6 @@ namespace System
 
         // Sets length elements in array to 0 (or null for Object arrays), starting
         // at index.
-        //
         public static unsafe void Clear(Array? array, int index, int length)
         {
             if (array == null)
