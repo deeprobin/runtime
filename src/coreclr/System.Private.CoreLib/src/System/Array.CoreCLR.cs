@@ -20,7 +20,7 @@ namespace System
         // Copies length elements from sourceArray, starting at index 0, to
         // destinationArray, starting at index 0.
         //
-        public static unsafe void Copy(Array sourceArray, Array destinationArray, int length)
+        public static unsafe void Copy(Array? sourceArray, Array? destinationArray, int length)
         {
             if (sourceArray == null)
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.sourceArray);
@@ -53,7 +53,7 @@ namespace System
         // Copies length elements from sourceArray, starting at sourceIndex, to
         // destinationArray, starting at destinationIndex.
         //
-        public static unsafe void Copy(Array sourceArray, int sourceIndex, Array destinationArray, int destinationIndex, int length)
+        public static unsafe void Copy(Array? sourceArray, int sourceIndex, Array? destinationArray, int destinationIndex, int length)
         {
             if (sourceArray != null && destinationArray != null)
             {
@@ -83,7 +83,7 @@ namespace System
             Copy(sourceArray!, sourceIndex, destinationArray!, destinationIndex, length, reliable: false);
         }
 
-        private static unsafe void Copy(Array sourceArray, int sourceIndex, Array destinationArray, int destinationIndex, int length, bool reliable)
+        private static unsafe void Copy(Array? sourceArray, int sourceIndex, Array? destinationArray, int destinationIndex, int length, bool reliable)
         {
             if (sourceArray == null)
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.sourceArray);
@@ -163,7 +163,7 @@ namespace System
         /// </summary>
         /// <param name="array">The array to clear.</param>
         /// <exception cref="ArgumentNullException"><paramref name="array"/> is null.</exception>
-        public static unsafe void Clear(Array array)
+        public static unsafe void Clear(Array? array)
         {
             if (array == null)
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
@@ -188,7 +188,7 @@ namespace System
         // Sets length elements in array to 0 (or null for Object arrays), starting
         // at index.
         //
-        public static unsafe void Clear(Array array, int index, int length)
+        public static unsafe void Clear(Array? array, int index, int length)
         {
             if (array == null)
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
