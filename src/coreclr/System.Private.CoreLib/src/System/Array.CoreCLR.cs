@@ -21,10 +21,14 @@ namespace System
         // destinationArray, starting at index 0.
         public static unsafe void Copy(Array? sourceArray, Array? destinationArray, int length)
         {
-            if (sourceArray == null)
+            if (sourceArray is null)
+            {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.sourceArray);
-            if (destinationArray == null)
+            }
+            if (destinationArray is null)
+            {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.destinationArray);
+            }
 
             MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(sourceArray);
             if (methodTablePtr == RuntimeHelpers.GetMethodTable(destinationArray) &&
@@ -37,11 +41,15 @@ namespace System
                 ref byte dst = ref Unsafe.As<RawArrayData>(destinationArray).Data;
 
                 if (methodTablePtr->ContainsGCPointers)
+                {
                     Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
+                }
                 else
+                {
                     Buffer.Memmove(ref dst, ref src, byteCount);
+                }
 
-                // GC.KeepAlive(sourceArray) not required. pMT kept alive via sourceArray
+                // GC.KeepAlive(sourceArray) not required. methodTablePtr kept alive via sourceArray
                 return;
             }
 
@@ -53,7 +61,7 @@ namespace System
         // destinationArray, starting at destinationIndex.
         public static unsafe void Copy(Array? sourceArray, int sourceIndex, Array? destinationArray, int destinationIndex, int length)
         {
-            if (sourceArray != null && destinationArray != null)
+            if (sourceArray is not null && destinationArray is not null)
             {
                 MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(sourceArray);
                 if (methodTablePtr == RuntimeHelpers.GetMethodTable(destinationArray) &&
@@ -68,11 +76,15 @@ namespace System
                     ref byte dst = ref Unsafe.AddByteOffset(ref Unsafe.As<RawArrayData>(destinationArray).Data, (uint)destinationIndex * elementSize);
 
                     if (methodTablePtr->ContainsGCPointers)
+                    {
                         Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
+                    }
                     else
+                    {
                         Buffer.Memmove(ref dst, ref src, byteCount);
+                    }
 
-                    // GC.KeepAlive(sourceArray) not required. pMT kept alive via sourceArray
+                    // GC.KeepAlive(sourceArray) not required. methodTablePtr kept alive via sourceArray
                     return;
                 }
             }
@@ -83,31 +95,48 @@ namespace System
 
         private static unsafe void Copy(Array? sourceArray, int sourceIndex, Array? destinationArray, int destinationIndex, int length, bool reliable)
         {
-            if (sourceArray == null)
+            if (sourceArray is null)
+            {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.sourceArray);
-            if (destinationArray == null)
+            }
+            if (destinationArray is null)
+            {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.destinationArray);
+            }
 
             if (sourceArray.GetType() != destinationArray.GetType() && sourceArray.Rank != destinationArray.Rank)
+            {
                 throw new RankException(SR.Rank_MustMatch);
+            }
 
             if (length < 0)
+            {
                 throw new ArgumentOutOfRangeException(nameof(length), SR.ArgumentOutOfRange_NeedNonNegNum);
+            }
 
-            int srcLB = sourceArray.GetLowerBound(0);
-            if (sourceIndex < srcLB || sourceIndex - srcLB < 0)
+            int lowerSourceBound = sourceArray.GetLowerBound(0);
+            if (sourceIndex < lowerSourceBound || sourceIndex - lowerSourceBound < 0)
+            {
                 throw new ArgumentOutOfRangeException(nameof(sourceIndex), SR.ArgumentOutOfRange_ArrayLB);
-            sourceIndex -= srcLB;
+            }
+            sourceIndex -= lowerSourceBound;
 
-            int dstLB = destinationArray.GetLowerBound(0);
-            if (destinationIndex < dstLB || destinationIndex - dstLB < 0)
+            int lowerDestBound = destinationArray.GetLowerBound(0);
+            if (destinationIndex < lowerDestBound || destinationIndex - lowerDestBound < 0)
+            {
                 throw new ArgumentOutOfRangeException(nameof(destinationIndex), SR.ArgumentOutOfRange_ArrayLB);
-            destinationIndex -= dstLB;
+            }
+            destinationIndex -= lowerDestBound;
 
             if ((uint)(sourceIndex + length) > sourceArray.NativeLength)
+            {
                 throw new ArgumentException(SR.Arg_LongerThanSrcArray, nameof(sourceArray));
+            }
+
             if ((uint)(destinationIndex + length) > destinationArray.NativeLength)
+            {
                 throw new ArgumentException(SR.Arg_LongerThanDestArray, nameof(destinationArray));
+            }
 
             if (sourceArray.GetType() == destinationArray.GetType() || IsSimpleCopy(sourceArray, destinationArray))
             {
@@ -119,18 +148,24 @@ namespace System
                 ref byte dst = ref Unsafe.AddByteOffset(ref MemoryMarshal.GetArrayDataReference(destinationArray), (uint)destinationIndex * elementSize);
 
                 if (methodTablePtr->ContainsGCPointers)
+                {
                     Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
+                }
                 else
+                {
                     Buffer.Memmove(ref dst, ref src, byteCount);
+                }
 
-                // GC.KeepAlive(sourceArray) not required. pMT kept alive via sourceArray
+                // GC.KeepAlive(sourceArray) not required. methodTablePtr kept alive via sourceArray
                 return;
             }
 
             // If we were called from Array.ConstrainedCopy, ensure that the array copy
             // is guaranteed to succeed.
             if (reliable)
+            {
                 throw new ArrayTypeMismatchException(SR.ArrayTypeMismatch_ConstrainedCopy);
+            }
 
             // Rare
             CopySlow(sourceArray, sourceIndex, destinationArray, destinationIndex, length);
@@ -163,8 +198,10 @@ namespace System
         /// <exception cref="ArgumentNullException"><paramref name="array"/> is null.</exception>
         public static unsafe void Clear(Array? array)
         {
-            if (array == null)
+            if (array is null)
+            {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            }
 
             MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(array);
             nuint totalByteLength = methodTablePtr->ComponentSize * array.NativeLength;
@@ -180,15 +217,17 @@ namespace System
                 SpanHelpers.ClearWithReferences(ref Unsafe.As<byte, IntPtr>(ref pStart), totalByteLength / (nuint)sizeof(IntPtr));
             }
 
-            // GC.KeepAlive(array) not required. pMT kept alive via `pStart`
+            // GC.KeepAlive(array) not required. methodTablePtr kept alive via `pStart`
         }
 
         // Sets length elements in array to 0 (or null for Object arrays), starting
         // at index.
         public static unsafe void Clear(Array? array, int index, int length)
         {
-            if (array == null)
+            if (array is null)
+            {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            }
 
             ref byte p = ref Unsafe.As<RawArrayData>(array).Data;
             int lowerBound = 0;
@@ -204,7 +243,9 @@ namespace System
             int offset = index - lowerBound;
 
             if (index < lowerBound || offset < 0 || length < 0 || (uint)(offset + length) > array.NativeLength)
+            {
                 ThrowHelper.ThrowIndexOutOfRangeException();
+            }
 
             nuint elementSize = methodTablePtr->ComponentSize;
 
@@ -216,7 +257,7 @@ namespace System
             else
                 SpanHelpers.ClearWithoutReferences(ref ptr, byteLength);
 
-            // GC.KeepAlive(array) not required. pMT kept alive via `ptr`
+            // GC.KeepAlive(array) not required. methodTablePtr kept alive via `ptr`
         }
 
         private unsafe nint GetFlattenedIndex(ReadOnlySpan<int> indices)
@@ -224,28 +265,32 @@ namespace System
             // Checked by the caller
             Debug.Assert(indices.Length == Rank);
 
+            int index;
             if (RuntimeHelpers.GetMethodTable(this)->IsMultiDimensionalArray)
             {
                 ref int bounds = ref RuntimeHelpers.GetMultiDimensionalArrayBounds(this);
                 nint flattenedIndex = 0;
                 for (int i = 0; i < indices.Length; i++)
                 {
-                    int index = indices[i] - Unsafe.Add(ref bounds, indices.Length  + i);
+                    index = indices[i] - Unsafe.Add(ref bounds, indices.Length + i);
                     int length = Unsafe.Add(ref bounds, i);
                     if ((uint)index >= (uint)length)
+                    {
                         ThrowHelper.ThrowIndexOutOfRangeException();
-                    flattenedIndex = (length * flattenedIndex) + index;
+                    }
+                    flattenedIndex = length * flattenedIndex + index;
                 }
                 Debug.Assert((nuint)flattenedIndex < (nuint)LongLength);
                 return flattenedIndex;
             }
-            else
+
+            index = indices[0];
+            if ((uint)index >= (uint)LongLength)
             {
-                int index = indices[0];
-                if ((uint)index >= (uint)LongLength)
-                    ThrowHelper.ThrowIndexOutOfRangeException();
-                return index;
+                ThrowHelper.ThrowIndexOutOfRangeException();
             }
+            return index;
+
         }
 
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -266,7 +311,7 @@ namespace System
             get
             {
                 int rank = RuntimeHelpers.GetMultiDimensionalArrayRank(this);
-                return (rank != 0) ? rank : 1;
+                return rank != 0 ? rank : 1;
             }
         }
 
@@ -278,7 +323,9 @@ namespace System
                 return Length;
 
             if ((uint)dimension >= (uint)rank)
+            {
                 throw new IndexOutOfRangeException(SR.IndexOutOfRange_ArrayRankIndex);
+            }
 
             return Unsafe.Add(ref RuntimeHelpers.GetMultiDimensionalArrayBounds(this), dimension);
         }
@@ -288,10 +335,14 @@ namespace System
         {
             int rank = RuntimeHelpers.GetMultiDimensionalArrayRank(this);
             if (rank == 0 && dimension == 0)
+            {
                 return Length - 1;
+            }
 
             if ((uint)dimension >= (uint)rank)
+            {
                 throw new IndexOutOfRangeException(SR.IndexOutOfRange_ArrayRankIndex);
+            }
 
             ref int bounds = ref RuntimeHelpers.GetMultiDimensionalArrayBounds(this);
             return Unsafe.Add(ref bounds, dimension) + Unsafe.Add(ref bounds, rank + dimension) - 1;
@@ -302,10 +353,14 @@ namespace System
         {
             int rank = RuntimeHelpers.GetMultiDimensionalArrayRank(this);
             if (rank == 0 && dimension == 0)
+            {
                 return 0;
+            }
 
             if ((uint)dimension >= (uint)rank)
+            {
                 throw new IndexOutOfRangeException(SR.IndexOutOfRange_ArrayRankIndex);
+            }
 
             return Unsafe.Add(ref RuntimeHelpers.GetMultiDimensionalArrayBounds(this), rank + dimension);
         }
