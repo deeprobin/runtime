@@ -62,7 +62,7 @@ namespace System
                     (uint)(sourceIndex + length) <= sourceArray.NativeLength &&
                     (uint)(destinationIndex + length) <= destinationArray.NativeLength)
                 {
-                    nuint elementSize = (nuint)pMT->ComponentSize;
+                    nuint elementSize = pMT->ComponentSize;
                     nuint byteCount = (uint)length * elementSize;
                     ref byte src = ref Unsafe.AddByteOffset(ref Unsafe.As<RawArrayData>(sourceArray).Data, (uint)sourceIndex * elementSize);
                     ref byte dst = ref Unsafe.AddByteOffset(ref Unsafe.As<RawArrayData>(destinationArray).Data, (uint)destinationIndex * elementSize);
@@ -113,7 +113,7 @@ namespace System
             {
                 MethodTable* pMT = RuntimeHelpers.GetMethodTable(sourceArray);
 
-                nuint elementSize = (nuint)pMT->ComponentSize;
+                nuint elementSize = pMT->ComponentSize;
                 nuint byteCount = (uint)length * elementSize;
                 ref byte src = ref Unsafe.AddByteOffset(ref MemoryMarshal.GetArrayDataReference(sourceArray), (uint)sourceIndex * elementSize);
                 ref byte dst = ref Unsafe.AddByteOffset(ref MemoryMarshal.GetArrayDataReference(destinationArray), (uint)destinationIndex * elementSize);
