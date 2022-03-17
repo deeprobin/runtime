@@ -26,17 +26,17 @@ namespace System
             if (destinationArray == null)
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.destinationArray);
 
-            MethodTable* pMT = RuntimeHelpers.GetMethodTable(sourceArray);
-            if (pMT == RuntimeHelpers.GetMethodTable(destinationArray) &&
-                !pMT->IsMultiDimensionalArray &&
+            MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(sourceArray);
+            if (methodTablePtr == RuntimeHelpers.GetMethodTable(destinationArray) &&
+                !methodTablePtr->IsMultiDimensionalArray &&
                 (uint)length <= sourceArray.NativeLength &&
                 (uint)length <= destinationArray.NativeLength)
             {
-                nuint byteCount = (uint)length * (nuint)pMT->ComponentSize;
+                nuint byteCount = (uint)length * (nuint)methodTablePtr->ComponentSize;
                 ref byte src = ref Unsafe.As<RawArrayData>(sourceArray).Data;
                 ref byte dst = ref Unsafe.As<RawArrayData>(destinationArray).Data;
 
-                if (pMT->ContainsGCPointers)
+                if (methodTablePtr->ContainsGCPointers)
                     Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
                 else
                     Buffer.Memmove(ref dst, ref src, byteCount);
@@ -55,19 +55,19 @@ namespace System
         {
             if (sourceArray != null && destinationArray != null)
             {
-                MethodTable* pMT = RuntimeHelpers.GetMethodTable(sourceArray);
-                if (pMT == RuntimeHelpers.GetMethodTable(destinationArray) &&
-                    !pMT->IsMultiDimensionalArray &&
+                MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(sourceArray);
+                if (methodTablePtr == RuntimeHelpers.GetMethodTable(destinationArray) &&
+                    !methodTablePtr->IsMultiDimensionalArray &&
                     length >= 0 && sourceIndex >= 0 && destinationIndex >= 0 &&
                     (uint)(sourceIndex + length) <= sourceArray.NativeLength &&
                     (uint)(destinationIndex + length) <= destinationArray.NativeLength)
                 {
-                    nuint elementSize = pMT->ComponentSize;
+                    nuint elementSize = methodTablePtr->ComponentSize;
                     nuint byteCount = (uint)length * elementSize;
                     ref byte src = ref Unsafe.AddByteOffset(ref Unsafe.As<RawArrayData>(sourceArray).Data, (uint)sourceIndex * elementSize);
                     ref byte dst = ref Unsafe.AddByteOffset(ref Unsafe.As<RawArrayData>(destinationArray).Data, (uint)destinationIndex * elementSize);
 
-                    if (pMT->ContainsGCPointers)
+                    if (methodTablePtr->ContainsGCPointers)
                         Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
                     else
                         Buffer.Memmove(ref dst, ref src, byteCount);
@@ -111,14 +111,14 @@ namespace System
 
             if (sourceArray.GetType() == destinationArray.GetType() || IsSimpleCopy(sourceArray, destinationArray))
             {
-                MethodTable* pMT = RuntimeHelpers.GetMethodTable(sourceArray);
+                MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(sourceArray);
 
-                nuint elementSize = pMT->ComponentSize;
+                nuint elementSize = methodTablePtr->ComponentSize;
                 nuint byteCount = (uint)length * elementSize;
                 ref byte src = ref Unsafe.AddByteOffset(ref MemoryMarshal.GetArrayDataReference(sourceArray), (uint)sourceIndex * elementSize);
                 ref byte dst = ref Unsafe.AddByteOffset(ref MemoryMarshal.GetArrayDataReference(destinationArray), (uint)destinationIndex * elementSize);
 
-                if (pMT->ContainsGCPointers)
+                if (methodTablePtr->ContainsGCPointers)
                     Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
                 else
                     Buffer.Memmove(ref dst, ref src, byteCount);
@@ -166,11 +166,11 @@ namespace System
             if (array == null)
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
 
-            MethodTable* pMT = RuntimeHelpers.GetMethodTable(array);
-            nuint totalByteLength = pMT->ComponentSize * array.NativeLength;
+            MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(array);
+            nuint totalByteLength = methodTablePtr->ComponentSize * array.NativeLength;
             ref byte pStart = ref MemoryMarshal.GetArrayDataReference(array);
 
-            if (!pMT->ContainsGCPointers)
+            if (!methodTablePtr->ContainsGCPointers)
             {
                 SpanHelpers.ClearWithoutReferences(ref pStart, totalByteLength);
             }
@@ -193,10 +193,10 @@ namespace System
             ref byte p = ref Unsafe.As<RawArrayData>(array).Data;
             int lowerBound = 0;
 
-            MethodTable* pMT = RuntimeHelpers.GetMethodTable(array);
-            if (pMT->IsMultiDimensionalArray)
+            MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(array);
+            if (methodTablePtr->IsMultiDimensionalArray)
             {
-                int rank = pMT->MultiDimensionalArrayRank;
+                int rank = methodTablePtr->MultiDimensionalArrayRank;
                 lowerBound = Unsafe.Add(ref Unsafe.As<byte, int>(ref p), rank);
                 p = ref Unsafe.Add(ref p, 2 * sizeof(int) * rank); // skip the bounds
             }
@@ -206,12 +206,12 @@ namespace System
             if (index < lowerBound || offset < 0 || length < 0 || (uint)(offset + length) > array.NativeLength)
                 ThrowHelper.ThrowIndexOutOfRangeException();
 
-            nuint elementSize = pMT->ComponentSize;
+            nuint elementSize = methodTablePtr->ComponentSize;
 
             ref byte ptr = ref Unsafe.AddByteOffset(ref p, (uint)offset * elementSize);
             nuint byteLength = (uint)length * elementSize;
 
-            if (pMT->ContainsGCPointers)
+            if (methodTablePtr->ContainsGCPointers)
                 SpanHelpers.ClearWithReferences(ref Unsafe.As<byte, IntPtr>(ref ptr), byteLength / (uint)sizeof(IntPtr));
             else
                 SpanHelpers.ClearWithoutReferences(ref ptr, byteLength);
@@ -315,8 +315,8 @@ namespace System
 
         private unsafe bool IsValueOfElementType(object value)
         {
-            MethodTable* thisMT = RuntimeHelpers.GetMethodTable(this);
-            return (IntPtr)thisMT->ElementType == (IntPtr)RuntimeHelpers.GetMethodTable(value);
+            MethodTable* thisMethodTable = RuntimeHelpers.GetMethodTable(this);
+            return (IntPtr)thisMethodTable->ElementType == (IntPtr)RuntimeHelpers.GetMethodTable(value);
         }
 
         // if this is an array of value classes and that value class has a default constructor
