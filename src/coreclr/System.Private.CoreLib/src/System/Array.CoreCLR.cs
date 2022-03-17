@@ -11,7 +11,7 @@ using System.Runtime.InteropServices;
 namespace System
 {
     // Note that we make a T[] (single-dimensional w/ zero as the lower bound) implement both
-    // IList<U> and IReadOnlyList<U>, where T : U dynamically.  See the SZArrayHelper class for details.
+    // IList<U> and IReadOnlyList<U>, where T : U dynamically. See the SZArrayHelper class for details.
     public abstract partial class Array : ICloneable, IList, IStructuralComparable, IStructuralEquatable
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -21,6 +21,10 @@ namespace System
         // destinationArray, starting at index 0.
         public static unsafe void Copy(Array? sourceArray, Array? destinationArray, int length)
         {
+            // Even if the Reference assembly defines the parameters of this method without nullable annotations,
+            // it is still possible to pass `null` to this method via indirect calls (such as Reflection).
+            //
+            // Therefore, we validate that these elements are not null.
             if (sourceArray is null)
             {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.sourceArray);
@@ -30,26 +34,31 @@ namespace System
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.destinationArray);
             }
 
-            MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(sourceArray);
-            if (methodTablePtr == RuntimeHelpers.GetMethodTable(destinationArray) &&
-                !methodTablePtr->IsMultiDimensionalArray &&
+            MethodTable* sourceMethodTablePtr = RuntimeHelpers.GetMethodTable(sourceArray);
+            MethodTable* destMethodTablePtr = RuntimeHelpers.GetMethodTable(destinationArray);
+
+            if (sourceMethodTablePtr == destMethodTablePtr &&
+                !sourceMethodTablePtr->IsMultiDimensionalArray &&
                 (uint)length <= sourceArray.NativeLength &&
                 (uint)length <= destinationArray.NativeLength)
             {
-                nuint byteCount = (uint)length * (nuint)methodTablePtr->ComponentSize;
+                nuint byteCount = (uint)length * (nuint)sourceMethodTablePtr->ComponentSize;
                 ref byte src = ref Unsafe.As<RawArrayData>(sourceArray).Data;
                 ref byte dst = ref Unsafe.As<RawArrayData>(destinationArray).Data;
 
-                if (methodTablePtr->ContainsGCPointers)
+                if (sourceMethodTablePtr->ContainsGCPointers)
                 {
+                    // Special handling for reference types
                     Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
                 }
                 else
                 {
+                    // In the case that this array consists of value types
+                    // we can simply call a "memmove" and not worry about garbage collection.
                     Buffer.Memmove(ref dst, ref src, byteCount);
                 }
 
-                // GC.KeepAlive(sourceArray) not required. methodTablePtr kept alive via sourceArray
+                // GC.KeepAlive(sourceArray) not required. sourceMethodTablePtr kept alive via sourceArray
                 return;
             }
 
@@ -61,30 +70,39 @@ namespace System
         // destinationArray, starting at destinationIndex.
         public static unsafe void Copy(Array? sourceArray, int sourceIndex, Array? destinationArray, int destinationIndex, int length)
         {
+            // Even if the Reference assembly defines the parameters of this method without nullable annotations,
+            // it is still possible to pass `null` to this method via indirect calls (such as Reflection).
+            //
+            // Therefore, we validate that these elements are not null.
             if (sourceArray is not null && destinationArray is not null)
             {
-                MethodTable* methodTablePtr = RuntimeHelpers.GetMethodTable(sourceArray);
-                if (methodTablePtr == RuntimeHelpers.GetMethodTable(destinationArray) &&
-                    !methodTablePtr->IsMultiDimensionalArray &&
+                MethodTable* sourceMethodTablePtr = RuntimeHelpers.GetMethodTable(sourceArray);
+                MethodTable* destMethodTablePtr = RuntimeHelpers.GetMethodTable(destinationArray);
+
+                if (sourceMethodTablePtr == destMethodTablePtr &&
+                    !sourceMethodTablePtr->IsMultiDimensionalArray &&
                     length >= 0 && sourceIndex >= 0 && destinationIndex >= 0 &&
                     (uint)(sourceIndex + length) <= sourceArray.NativeLength &&
                     (uint)(destinationIndex + length) <= destinationArray.NativeLength)
                 {
-                    nuint elementSize = methodTablePtr->ComponentSize;
+                    nuint elementSize = sourceMethodTablePtr->ComponentSize;
                     nuint byteCount = (uint)length * elementSize;
                     ref byte src = ref Unsafe.AddByteOffset(ref Unsafe.As<RawArrayData>(sourceArray).Data, (uint)sourceIndex * elementSize);
                     ref byte dst = ref Unsafe.AddByteOffset(ref Unsafe.As<RawArrayData>(destinationArray).Data, (uint)destinationIndex * elementSize);
 
-                    if (methodTablePtr->ContainsGCPointers)
+                    if (sourceMethodTablePtr->ContainsGCPointers)
                     {
+                        // Special handling for reference types
                         Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
                     }
                     else
                     {
+                        // In the case that this array consists of value types
+                        // we can simply call a "memmove" and not worry about garbage collection.
                         Buffer.Memmove(ref dst, ref src, byteCount);
                     }
 
-                    // GC.KeepAlive(sourceArray) not required. methodTablePtr kept alive via sourceArray
+                    // GC.KeepAlive(sourceArray) not required. sourceMethodTablePtr kept alive via sourceArray
                     return;
                 }
             }
@@ -95,15 +113,21 @@ namespace System
 
         private static unsafe void Copy(Array? sourceArray, int sourceIndex, Array? destinationArray, int destinationIndex, int length, bool reliable)
         {
+            // Even if the Reference assembly defines the parameters of this method without nullable annotations,
+            // it is still possible to pass `null` to this method via indirect calls (such as Reflection).
+            //
+            // Therefore, we validate that these elements are not null.
             if (sourceArray is null)
             {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.sourceArray);
             }
+
             if (destinationArray is null)
             {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.destinationArray);
             }
 
+            // We validate the equality, of the amount of dimensions of `sourceArray` and `destinationArray`.
             if (sourceArray.GetType() != destinationArray.GetType() && sourceArray.Rank != destinationArray.Rank)
             {
                 throw new RankException(SR.Rank_MustMatch);
@@ -149,10 +173,13 @@ namespace System
 
                 if (methodTablePtr->ContainsGCPointers)
                 {
+                    // Special handling for reference types
                     Buffer.BulkMoveWithWriteBarrier(ref dst, ref src, byteCount);
                 }
                 else
                 {
+                    // In the case that this array consists of value types
+                    // we can simply call a "memmove" and not worry about garbage collection.
                     Buffer.Memmove(ref dst, ref src, byteCount);
                 }
 
@@ -198,6 +225,10 @@ namespace System
         /// <exception cref="ArgumentNullException"><paramref name="array"/> is null.</exception>
         public static unsafe void Clear(Array? array)
         {
+            // Even if the Reference assembly defines the parameter of this method without nullable annotations,
+            // it is still possible to pass `null` to this method via indirect calls (such as Reflection).
+            //
+            // Therefore, we validate that `array` is not null.
             if (array is null)
             {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
@@ -224,6 +255,10 @@ namespace System
         // at index.
         public static unsafe void Clear(Array? array, int index, int length)
         {
+            // Even if the Reference assembly defines the parameter of this method without nullable annotations,
+            // it is still possible to pass `null` to this method via indirect calls (such as Reflection).
+            //
+            // Therefore, we validate that `array` is not null.
             if (array is null)
             {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
@@ -242,6 +277,7 @@ namespace System
 
             int offset = index - lowerBound;
 
+            // Validate if `index` and `length` are valid bounds in `array`
             if (index < lowerBound || offset < 0 || length < 0 || (uint)(offset + length) > array.NativeLength)
             {
                 ThrowHelper.ThrowIndexOutOfRangeException();
@@ -253,9 +289,13 @@ namespace System
             nuint byteLength = (uint)length * elementSize;
 
             if (methodTablePtr->ContainsGCPointers)
+            {
                 SpanHelpers.ClearWithReferences(ref Unsafe.As<byte, IntPtr>(ref ptr), byteLength / (uint)sizeof(IntPtr));
+            }
             else
+            {
                 SpanHelpers.ClearWithoutReferences(ref ptr, byteLength);
+            }
 
             // GC.KeepAlive(array) not required. methodTablePtr kept alive via `ptr`
         }
@@ -285,6 +325,8 @@ namespace System
             }
 
             index = indices[0];
+
+            // Validate if `index` is less than or equal to the actual array length
             if ((uint)index >= (uint)LongLength)
             {
                 ThrowHelper.ThrowIndexOutOfRangeException();
@@ -322,6 +364,7 @@ namespace System
             if (rank == 0 && dimension == 0)
                 return Length;
 
+            // Validate if `dimension` is less than or equal to the actual array dimension
             if ((uint)dimension >= (uint)rank)
             {
                 throw new IndexOutOfRangeException(SR.IndexOutOfRange_ArrayRankIndex);
@@ -339,6 +382,7 @@ namespace System
                 return Length - 1;
             }
 
+            // Validate if `dimension` is less than or equal to the actual array dimension
             if ((uint)dimension >= (uint)rank)
             {
                 throw new IndexOutOfRangeException(SR.IndexOutOfRange_ArrayRankIndex);
@@ -357,6 +401,7 @@ namespace System
                 return 0;
             }
 
+            // Validate if `dimension` is less than or equal to the actual array dimension
             if ((uint)dimension >= (uint)rank)
             {
                 throw new IndexOutOfRangeException(SR.IndexOutOfRange_ArrayRankIndex);
@@ -381,7 +426,7 @@ namespace System
         public extern void Initialize();
     }
 
-#pragma warning disable CA1822 // Mark members as static
+#pragma warning disable IDE0051 // Remove unused private members
     //----------------------------------------------------------------------------------------
     // ! READ THIS BEFORE YOU WORK ON THIS CLASS.
     //
@@ -518,5 +563,5 @@ namespace System
             ThrowHelper.ThrowNotSupportedException(ExceptionResource.NotSupported_FixedSizeCollection);
         }
     }
-#pragma warning restore CA1822
+#pragma warning restore IDE0051
 }
