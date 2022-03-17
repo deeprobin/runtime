@@ -249,7 +249,7 @@ namespace System
         }
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        internal extern unsafe object? InternalGetValue(nint flattenedIndex);
+        internal extern object? InternalGetValue(nint flattenedIndex);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private extern void InternalSetValue(object? value, nint flattenedIndex);
@@ -261,7 +261,7 @@ namespace System
 
         public long LongLength => (long)NativeLength;
 
-        public unsafe int Rank
+        public int Rank
         {
             get
             {
@@ -271,7 +271,7 @@ namespace System
         }
 
         [Intrinsic]
-        public unsafe int GetLength(int dimension)
+        public int GetLength(int dimension)
         {
             int rank = RuntimeHelpers.GetMultiDimensionalArrayRank(this);
             if (rank == 0 && dimension == 0)
@@ -284,7 +284,7 @@ namespace System
         }
 
         [Intrinsic]
-        public unsafe int GetUpperBound(int dimension)
+        public int GetUpperBound(int dimension)
         {
             int rank = RuntimeHelpers.GetMultiDimensionalArrayRank(this);
             if (rank == 0 && dimension == 0)
@@ -298,7 +298,7 @@ namespace System
         }
 
         [Intrinsic]
-        public unsafe int GetLowerBound(int dimension)
+        public int GetLowerBound(int dimension)
         {
             int rank = RuntimeHelpers.GetMultiDimensionalArrayRank(this);
             if (rank == 0 && dimension == 0)
