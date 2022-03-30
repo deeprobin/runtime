@@ -17,8 +17,6 @@ namespace System.Drawing
     {
         private static ReadOnlySpan<byte> PBrush => new byte[] { (byte)'P', (byte)'B', (byte)'r', (byte)'u', (byte)'s', (byte)'h' };
 
-        private static ReadOnlySpan<byte> BMBytes => new byte[] { (byte)'B', (byte)'M' };
-
         public override bool CanConvertFrom(ITypeDescriptorContext? context, Type? sourceType)
         {
             return sourceType == typeof(byte[]) || sourceType == typeof(Icon);

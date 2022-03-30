@@ -18,8 +18,6 @@ namespace System.Drawing.Printing
 
         public bool IsDefault => this == Default;
 
-        public bool IsFalse => this == False;
-
         public bool IsNotDefault => this != Default;
 
         public bool IsTrue => this == True;
