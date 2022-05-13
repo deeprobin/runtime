@@ -434,11 +434,6 @@ namespace System.IO
             string fullSourceFileName = Path.GetFullPath(sourceFileName);
             string fullDestFileName = Path.GetFullPath(destFileName);
 
-            if (!FileSystem.FileExists(fullSourceFileName))
-            {
-                throw new FileNotFoundException(SR.Format(SR.IO_FileNotFound_FileName, fullSourceFileName), fullSourceFileName);
-            }
-
             FileSystem.MoveFile(fullSourceFileName, fullDestFileName, overwrite);
         }
 
