@@ -275,15 +275,16 @@ namespace System.Runtime.CompilerServices
             where TStateMachine : IAsyncStateMachine
         {
             /// <summary>Delegate used to invoke on an ExecutionContext when passed an instance of this box type.</summary>
-            private static readonly ContextCallback s_callback = ExecutionContextCallback;
+            private static readonly ContextCallback<AsyncStateMachineBox<TStateMachine>?> s_callback = ExecutionContextCallback;
 
             // Used to initialize s_callback above. We don't use a lambda for this on purpose: a lambda would
             // introduce a new generic type behind the scenes that comes with a hefty size penalty in AOT builds.
-            private static void ExecutionContextCallback(object? s)
+            private static void ExecutionContextCallback(ref AsyncStateMachineBox<TStateMachine>? s)
             {
-                Debug.Assert(s is AsyncStateMachineBox<TStateMachine>);
+                Debug.Assert(s != null);
+
                 // Only used privately to pass directly to EC.Run
-                Unsafe.As<AsyncStateMachineBox<TStateMachine>>(s).StateMachine!.MoveNext();
+                s.StateMachine!.MoveNext();
             }
 
             /// <summary>A delegate to the <see cref="MoveNext()"/> method.</summary>
@@ -319,13 +320,14 @@ namespace System.Runtime.CompilerServices
                 }
                 else
                 {
+                    AsyncStateMachineBox<TStateMachine>? self = this;
                     if (threadPoolThread is null)
                     {
-                        ExecutionContext.RunInternal(context, s_callback, this);
+                        ExecutionContext.RunInternal(context, s_callback, ref self);
                     }
                     else
                     {
-                        ExecutionContext.RunFromThreadPoolDispatchLoop(threadPoolThread, context, s_callback, this);
+                        ExecutionContext.RunFromThreadPoolDispatchLoop(threadPoolThread, context, s_callback, ref self);
                     }
                 }
 

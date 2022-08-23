@@ -283,7 +283,7 @@ namespace System.Runtime.CompilerServices
             where TStateMachine : IAsyncStateMachine
         {
             /// <summary>Delegate used to invoke on an ExecutionContext when passed an instance of this box type.</summary>
-            private static readonly ContextCallback s_callback = ExecutionContextCallback;
+            private static readonly ContextCallback<StateMachineBox<TStateMachine>?> s_callback = ExecutionContextCallback;
             /// <summary>Per-core cache of boxes, with one box per core.</summary>
             /// <remarks>Each element is padded to expected cache-line size so as to minimize false sharing.</remarks>
             private static readonly PaddedReference[] s_perCoreCache = new PaddedReference[Environment.ProcessorCount];
@@ -385,11 +385,11 @@ namespace System.Runtime.CompilerServices
             /// Used to initialize s_callback above. We don't use a lambda for this on purpose: a lambda would
             /// introduce a new generic type behind the scenes that comes with a hefty size penalty in AOT builds.
             /// </summary>
-            private static void ExecutionContextCallback(object? s)
+            private static void ExecutionContextCallback(ref StateMachineBox<TStateMachine>? s)
             {
                 // Only used privately to pass directly to EC.Run
-                Debug.Assert(s is StateMachineBox<TStateMachine>, $"Expected {nameof(StateMachineBox<TStateMachine>)}, got '{s}'");
-                Unsafe.As<StateMachineBox<TStateMachine>>(s).StateMachine!.MoveNext();
+                Debug.Assert(s != null);
+                s.StateMachine!.MoveNext();
             }
 
             /// <summary>A delegate to the <see cref="MoveNext()"/> method.</summary>
@@ -410,7 +410,8 @@ namespace System.Runtime.CompilerServices
                 }
                 else
                 {
-                    ExecutionContext.RunInternal(context, s_callback, this);
+                    StateMachineBox<TStateMachine>? self = this;
+                    ExecutionContext.RunInternal(context, s_callback, ref self);
                 }
             }
 

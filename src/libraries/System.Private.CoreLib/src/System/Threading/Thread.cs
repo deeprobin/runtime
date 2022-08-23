@@ -34,12 +34,12 @@ namespace System.Threading
                 _start = start;
             }
 
-            internal static readonly ContextCallback s_threadStartContextCallback = new ContextCallback(Callback);
+            private static readonly ContextCallback<StartHelper?> s_threadStartContextCallback = Callback;
 
-            private static void Callback(object? state)
+            private static void Callback(ref StartHelper? state)
             {
                 Debug.Assert(state != null);
-                ((StartHelper)state).RunWorker();
+                state.RunWorker();
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)] // avoid long-lived stack frame in many threads
@@ -47,7 +47,8 @@ namespace System.Threading
             {
                 if (_executionContext != null && !_executionContext.IsDefault)
                 {
-                    ExecutionContext.RunInternal(_executionContext, s_threadStartContextCallback, this);
+                    StartHelper? self = this;
+                    ExecutionContext.RunInternal(_executionContext, s_threadStartContextCallback, ref self);
                 }
                 else
                 {

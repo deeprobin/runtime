@@ -21,12 +21,11 @@ namespace System.Threading
         }
 
         // Context callback: same sig for SendOrPostCallback and ContextCallback
-        private static readonly ContextCallback IOCompletionCallback_Context_Delegate = IOCompletionCallback_Context;
-        private static void IOCompletionCallback_Context(object? state)
+        private static readonly ContextCallback<_IOCompletionCallback?> s_ioCompletionCallbackContextDelegate = IOCompletionCallback_Context;
+        private static void IOCompletionCallback_Context(ref _IOCompletionCallback? state)
         {
-            _IOCompletionCallback helper = (_IOCompletionCallback)state!;
-            Debug.Assert(helper != null, "_IOCompletionCallback cannot be null");
-            helper._ioCompletionCallback(helper._errorCode, helper._numBytes, helper._pNativeOverlapped);
+            Debug.Assert(state != null, "_IOCompletionCallback cannot be null");
+            state._ioCompletionCallback(state._errorCode, state._numBytes, state._pNativeOverlapped);
         }
 
         public static void PerformSingleIOCompletionCallback(uint errorCode, uint numBytes, NativeOverlapped* pNativeOverlapped)
@@ -54,7 +53,7 @@ namespace System.Threading
             helper._errorCode = errorCode;
             helper._numBytes = numBytes;
             helper._pNativeOverlapped = pNativeOverlapped;
-            ExecutionContext.RunInternal(helper._executionContext, IOCompletionCallback_Context_Delegate, helper);
+            ExecutionContext.RunInternal(helper._executionContext, s_ioCompletionCallbackContextDelegate, ref helper);
         }
     }
 }

@@ -147,6 +147,74 @@ namespace System.Threading
             RunInternal(executionContext, callback, state);
         }
 
+        internal static void Run<TState>(ExecutionContext executionContext, ContextCallback<TState?> callback, ref TState? state)
+        {
+            // Note: ExecutionContext.Run is an extremely hot function and used by every await, ThreadPool execution, etc.
+            if (executionContext == null)
+            {
+                ThrowNullContext();
+            }
+
+            RunInternal(executionContext, callback, ref state);
+        }
+
+        internal static void RunInternal<TState>(ExecutionContext? executionContext, ContextCallback<TState?> callback,
+            ref TState? state)
+        {
+            // Note: ExecutionContext.RunInternal is an extremely hot function and used by every await, ThreadPool execution, etc.
+            // Note: Manual enregistering may be addressed by "Exception Handling Write Through Optimization"
+            //       https://github.com/dotnet/runtime/blob/main/docs/design/features/eh-writethru.md
+
+            // Enregister previousExecutionCtx0 so they can be used in registers without EH forcing them to stack
+
+            Thread currentThread = Thread.CurrentThread;
+            ExecutionContext? previousExecutionCtx0 = currentThread._executionContext;
+            if (previousExecutionCtx0 is { m_isDefault: true })
+            {
+                // Default is a null ExecutionContext internally
+                previousExecutionCtx0 = null;
+            }
+
+            ExecutionContext? previousExecutionCtx = previousExecutionCtx0;
+            SynchronizationContext? previousSyncCtx = currentThread._synchronizationContext;
+
+            if (executionContext is { m_isDefault: true })
+            {
+                // Default is a null ExecutionContext internally
+                executionContext = null;
+            }
+
+            if (previousExecutionCtx != executionContext)
+            {
+                RestoreChangedContextToThread(currentThread, executionContext, previousExecutionCtx);
+            }
+
+            ExceptionDispatchInfo? edi = null;
+            try
+            {
+                callback.Invoke(ref state);
+            }
+            catch (Exception ex)
+            {
+                // Note: we have a "catch" rather than a "finally" because we want
+                // to stop the first pass of EH here.  That way we can restore the previous
+                // context before any of our callers' EH filters run.
+                edi = ExceptionDispatchInfo.Capture(ex);
+            }
+
+            // Restore changed SynchronizationContext back to previous
+            currentThread._synchronizationContext = previousSyncCtx;
+
+            ExecutionContext? currentExecutionCtx = currentThread._executionContext;
+            if (currentExecutionCtx != previousExecutionCtx)
+            {
+                RestoreChangedContextToThread(currentThread, previousExecutionCtx, currentExecutionCtx);
+            }
+
+            // If exception was thrown by callback, rethrow it now original contexts are restored
+            edi?.Throw();
+        }
+
         internal static void RunInternal(ExecutionContext? executionContext, ContextCallback callback, object? state)
         {
             // Note: ExecutionContext.RunInternal is an extremely hot function and used by every await, ThreadPool execution, etc.
@@ -249,14 +317,14 @@ namespace System.Threading
             }
         }
 
-        internal static void RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, object state)
+        internal static void RunFromThreadPoolDispatchLoop<TState>(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback<TState?> callback, ref TState? state)
         {
             Debug.Assert(threadPoolThread == Thread.CurrentThread);
             CheckThreadPoolAndContextsAreDefault();
             // ThreadPool starts on Default Context so we don't need to save the "previous" state as we know it is Default (null)
 
             // Default is a null ExecutionContext internally
-            if (executionContext != null && !executionContext.m_isDefault)
+            if (executionContext is { m_isDefault: false })
             {
                 // Non-Default context to restore
                 RestoreChangedContextToThread(threadPoolThread, contextToRestore: executionContext, currentContext: null);
@@ -265,7 +333,7 @@ namespace System.Threading
             ExceptionDispatchInfo? edi = null;
             try
             {
-                callback.Invoke(state);
+                callback.Invoke(ref state);
             }
             catch (Exception ex)
             {

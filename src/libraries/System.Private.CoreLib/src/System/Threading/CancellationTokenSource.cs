@@ -1105,12 +1105,13 @@ namespace System.Threading
                 }
                 else
                 {
-                    ExecutionContext.RunInternal(context, static s =>
+                    CallbackNode? self = this;
+                    ExecutionContext.RunInternal(context, static (ref CallbackNode? node) =>
                     {
-                        var node = (CallbackNode)s!;
+                        Debug.Assert(node != null);
                         Debug.Assert(node.Callback != null);
                         Invoke(node.Callback, node.CallbackState, node.Registrations.Source);
-                    }, this);
+                    }, ref self);
                 }
             }
         }

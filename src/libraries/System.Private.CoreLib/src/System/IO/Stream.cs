@@ -690,17 +690,16 @@ namespace System.IO
                 }
             }
 
-            private static void InvokeAsyncCallback(object? completedTask)
+            private static void InvokeAsyncCallback(ref ReadWriteTask? completedTask)
             {
-                Debug.Assert(completedTask is ReadWriteTask);
-                var rwc = (ReadWriteTask)completedTask;
-                AsyncCallback? callback = rwc._callback;
+                Debug.Assert(completedTask != null);
+                AsyncCallback? callback = completedTask._callback;
                 Debug.Assert(callback != null);
-                rwc._callback = null;
-                callback(rwc);
+                completedTask._callback = null;
+                callback(completedTask);
             }
 
-            private static ContextCallback? s_invokeAsyncCallback;
+            private static ContextCallback<ReadWriteTask?>? s_invokeAsyncCallback;
 
             void ITaskCompletionAction.Invoke(Task completingTask)
             {
@@ -719,9 +718,10 @@ namespace System.IO
                 {
                     _context = null;
 
-                    ContextCallback? invokeAsyncCallback = s_invokeAsyncCallback ??= InvokeAsyncCallback;
+                    ContextCallback<ReadWriteTask?> invokeAsyncCallback = s_invokeAsyncCallback ??= InvokeAsyncCallback;
 
-                    ExecutionContext.RunInternal(context, invokeAsyncCallback, this);
+                    ReadWriteTask? self = this;
+                    ExecutionContext.RunInternal(context, invokeAsyncCallback, ref self);
                 }
             }
 

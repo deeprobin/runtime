@@ -2340,13 +2340,14 @@ namespace System.Threading.Tasks
                     else
                     {
                         // Invoke it under the captured ExecutionContext
+                        Task? self = this;
                         if (threadPoolThread is null)
                         {
-                            ExecutionContext.RunInternal(ec, s_ecCallback, this);
+                            ExecutionContext.RunInternal(ec, s_ecCallback, ref self);
                         }
                         else
                         {
-                            ExecutionContext.RunFromThreadPoolDispatchLoop(threadPoolThread, ec, s_ecCallback, this);
+                            ExecutionContext.RunFromThreadPoolDispatchLoop(threadPoolThread, ec, s_ecCallback, ref self);
                         }
                     }
                 }
@@ -2380,11 +2381,12 @@ namespace System.Threading.Tasks
             }
         }
 
-        private static readonly ContextCallback s_ecCallback = obj =>
+        private static readonly ContextCallback<Task?> s_ecCallback = (ref Task? task) =>
         {
-            Debug.Assert(obj is Task);
+            Debug.Assert(task != null);
+
             // Only used privately to pass directly to EC.Run
-            Unsafe.As<Task>(obj).InnerInvoke();
+            task.InnerInvoke();
         };
 
         /// <summary>

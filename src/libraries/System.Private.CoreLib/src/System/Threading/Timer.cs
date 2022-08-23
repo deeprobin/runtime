@@ -484,7 +484,8 @@ namespace System.Threading
         internal bool _everQueued;
         private object? _notifyWhenNoCallbacksRunning; // may be either WaitHandle or Task
 
-        internal TimerQueueTimer(TimerCallback timerCallback, object? state, uint dueTime, uint period, bool flowExecutionContext)
+        internal TimerQueueTimer(TimerCallback timerCallback, object? state, uint dueTime, uint period,
+            bool flowExecutionContext)
         {
             _timerCallback = timerCallback;
             _state = state;
@@ -494,6 +495,7 @@ namespace System.Threading
             {
                 _executionContext = ExecutionContext.Capture();
             }
+
             _associatedTimerQueue = TimerQueue.Instances[Thread.GetCurrentProcessorId() % TimerQueue.Instances.Length];
 
             // After the following statement, the timer may fire.  No more manipulation of timer state outside of
@@ -513,8 +515,11 @@ namespace System.Threading
                 }
 
                 return
-                    "DueTime = " + (_dueTime == Timeout.UnsignedInfinite ? "(not set)" : TimeSpan.FromMilliseconds(_dueTime)) + ", " +
-                    "Period = " + (_period == Timeout.UnsignedInfinite ? "(not set)" : TimeSpan.FromMilliseconds(_period)) + ", " +
+                    "DueTime = " + (_dueTime == Timeout.UnsignedInfinite
+                        ? "(not set)"
+                        : TimeSpan.FromMilliseconds(_dueTime)) + ", " +
+                    "Period = " +
+                    (_period == Timeout.UnsignedInfinite ? "(not set)" : TimeSpan.FromMilliseconds(_period)) + ", " +
                     typeName + _timerCallback.Method.Name + "(" + (_state?.ToString() ?? "null") + ")";
             }
         }
@@ -537,8 +542,10 @@ namespace System.Threading
                 }
                 else
                 {
-                    if (FrameworkEventSource.Log.IsEnabled(EventLevel.Informational, FrameworkEventSource.Keywords.ThreadTransfer))
-                        FrameworkEventSource.Log.ThreadTransferSendObj(this, 1, string.Empty, true, (int)dueTime, (int)period);
+                    if (FrameworkEventSource.Log.IsEnabled(EventLevel.Informational,
+                            FrameworkEventSource.Keywords.ThreadTransfer))
+                        FrameworkEventSource.Log.ThreadTransferSendObj(this, 1, string.Empty, true, (int)dueTime,
+                            (int)period);
                     success = _associatedTimerQueue.UpdateTimer(this, dueTime, period);
                 }
             }
@@ -693,7 +700,8 @@ namespace System.Threading
 
         internal void CallCallback(bool isThreadPool)
         {
-            if (FrameworkEventSource.Log.IsEnabled(EventLevel.Informational, FrameworkEventSource.Keywords.ThreadTransfer))
+            if (FrameworkEventSource.Log.IsEnabled(EventLevel.Informational,
+                    FrameworkEventSource.Keywords.ThreadTransfer))
                 FrameworkEventSource.Log.ThreadTransferReceiveObj(this, 1, string.Empty);
 
             // Call directly if EC flow is suppressed
@@ -704,23 +712,25 @@ namespace System.Threading
             }
             else
             {
+                TimerQueueTimer? self = this;
                 if (isThreadPool)
                 {
-                    ExecutionContext.RunFromThreadPoolDispatchLoop(Thread.CurrentThread, context, s_callCallbackInContext, this);
+                    ExecutionContext.RunFromThreadPoolDispatchLoop(Thread.CurrentThread, context,
+                        s_callCallbackInContext, ref self);
                 }
                 else
                 {
-                    ExecutionContext.RunInternal(context, s_callCallbackInContext, this);
+                    ExecutionContext.RunInternal(context, s_callCallbackInContext, ref self);
                 }
             }
         }
 
-        private static readonly ContextCallback s_callCallbackInContext = static state =>
-        {
-            Debug.Assert(state is TimerQueueTimer);
-            var t = (TimerQueueTimer)state;
-            t._timerCallback(t._state);
-        };
+        private static readonly ContextCallback<TimerQueueTimer?> s_callCallbackInContext =
+            static (ref TimerQueueTimer? state) =>
+            {
+                Debug.Assert(state != null);
+                state._timerCallback(state._state);
+            };
 
         internal sealed class TimerDebuggerTypeProxy
         {
