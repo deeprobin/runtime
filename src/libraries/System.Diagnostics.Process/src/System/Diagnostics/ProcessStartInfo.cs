@@ -100,6 +100,8 @@ namespace System.Diagnostics
             }
         }
 
+        public bool InheritHandles { get; set; }
+
         public bool RedirectStandardInput { get; set; }
         public bool RedirectStandardOutput { get; set; }
         public bool RedirectStandardError { get; set; }

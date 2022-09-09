@@ -332,4 +332,10 @@
   <data name="InvalidSysctl" xml:space="preserve">
     <value>sysctl {0} failed with {1} error.</value>
   </data>
+  <data name="CantUseInheritHandlesInShellExecute" xml:space="preserve">
+    <value>The Process object must have the UseShellExecute property set to false in order to inherit handles.</value>
+  </data>
+  <data name="CantUseInheritHandlesWithSpecifiedUser" xml:space="preserve">
+    <value>The Process object must not have the Username property set in order to inherit handles.</value>
+  </data>
 </root>

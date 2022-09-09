@@ -523,6 +523,11 @@ namespace System.Diagnostics
                             throw new ArgumentException(SR.CantSetDuplicatePassword);
                         }
 
+                        if (startInfo.InheritHandles)
+                        {
+                            throw new InvalidOperationException(SR.CantUseInheritHandlesWithSpecifiedUser);
+                        }
+
                         Interop.Advapi32.LogonFlags logonFlags = (Interop.Advapi32.LogonFlags)0;
                         if (startInfo.LoadUserProfile)
                         {
@@ -571,7 +576,7 @@ namespace System.Diagnostics
                                 commandLinePtr,      // pointer to the command line string
                                 ref unused_SecAttrs, // address to process security attributes, we don't need to inherit the handle
                                 ref unused_SecAttrs, // address to thread security attributes.
-                                true,                // handle inheritance flag
+                                startInfo.InheritHandles,                // handle inheritance flag
                                 creationFlags,       // creation flags
                                 (IntPtr)environmentBlockPtr, // pointer to new environment block
                                 workingDirectory,    // pointer to current directory name
