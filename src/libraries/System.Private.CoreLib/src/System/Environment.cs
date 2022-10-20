@@ -21,6 +21,10 @@ namespace System
         // Unconditionally return false since .NET Core does not support object finalization during shutdown.
         public static bool HasShutdownStarted => false;
 
+        public static bool IsPrivilegedProcess => IsProcessPrivileged();
+
+        private static partial bool IsProcessPrivileged();
+
         public static string? GetEnvironmentVariable(string variable)
         {
             ArgumentNullException.ThrowIfNull(variable);
