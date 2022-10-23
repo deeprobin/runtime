@@ -101,5 +101,14 @@ namespace System.Reflection.Metadata
             var otherAccessors = other?.ToImmutable() ?? ImmutableArray<MethodDefinitionHandle>.Empty;
             return new PropertyAccessors(getter, setter, otherAccessors);
         }
+
+        /// <summary>
+        /// Gets the <see cref="TypeDefinitionHandle"/> of the type in which this <see cref="PropertyDefinition"/> is declared.
+        /// </summary>
+        /// <returns>The parent <see cref="TypeDefinitionHandle"/>.</returns>
+        public TypeDefinitionHandle GetDeclaringType()
+        {
+            return _reader.GetDeclaringType(Handle);
+        }
     }
 }

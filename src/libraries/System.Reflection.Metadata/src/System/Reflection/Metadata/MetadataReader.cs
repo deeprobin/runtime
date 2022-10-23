@@ -607,7 +607,7 @@ namespace System.Reflection.Metadata
             this.TypeRefTable = new TypeRefTableReader(rowCounts[(int)TableIndex.TypeRef], resolutionScopeRefSize, stringHeapRefSize, metadataTablesMemoryBlock, totalRequiredSize);
             totalRequiredSize += this.TypeRefTable.Block.Length;
 
-            this.TypeDefTable = new TypeDefTableReader(rowCounts[(int)TableIndex.TypeDef], fieldRefSizeSorted, methodRefSizeSorted, typeDefOrRefRefSize, stringHeapRefSize, metadataTablesMemoryBlock, totalRequiredSize);
+            this.TypeDefTable = new TypeDefTableReader(rowCounts[(int)TableIndex.TypeDef], fieldRefSizeSorted, methodRefSizeSorted, eventRefSizeSorted, propertyRefSizeSorted, typeDefOrRefRefSize, stringHeapRefSize, metadataTablesMemoryBlock, totalRequiredSize);
             totalRequiredSize += this.TypeDefTable.Block.Length;
 
             this.FieldPtrTable = new FieldPtrTableReader(rowCounts[(int)TableIndex.FieldPtr], GetReferenceSize(rowCounts, TableIndex.Field), metadataTablesMemoryBlock, totalRequiredSize);
@@ -1347,6 +1347,24 @@ namespace System.Reflection.Metadata
             }
 
             return TypeDefTable.FindTypeContainingField(fieldRowId, FieldTable.NumberOfRows);
+        }
+
+        internal TypeDefinitionHandle GetDeclaringType(EventDefinitionHandle eventDef)
+        {
+            int eventRowId = UsePropertyPtrTable
+                ? EventPtrTable.GetRowIdForEventDefRow(eventDef.RowId)
+                : eventDef.RowId;
+
+            return TypeDefTable.FindTypeContainingProperty(eventRowId, EventTable.NumberOfRows);
+        }
+
+        internal TypeDefinitionHandle GetDeclaringType(PropertyDefinitionHandle propertyDef)
+        {
+            int propertyRowId = UsePropertyPtrTable
+                ? PropertyPtrTable.GetRowIdForPropertyDefRow(propertyDef.RowId)
+                : propertyDef.RowId;
+
+            return TypeDefTable.FindTypeContainingProperty(propertyRowId, PropertyTable.NumberOfRows);
         }
 
         public string GetString(DocumentNameBlobHandle handle)

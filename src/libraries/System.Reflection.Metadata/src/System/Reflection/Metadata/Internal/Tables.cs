@@ -122,6 +122,8 @@ namespace System.Reflection.Metadata.Ecma335
     {
         internal readonly int NumberOfRows;
         private readonly bool _IsFieldRefSizeSmall;
+        private readonly bool _IsPropertyRefSizeSmall;
+        private readonly bool _IsEventRefSizeSmall;
         private readonly bool _IsMethodRefSizeSmall;
         private readonly bool _IsTypeDefOrRefRefSizeSmall;
         private readonly bool _IsStringHeapRefSizeSmall;
@@ -131,6 +133,8 @@ namespace System.Reflection.Metadata.Ecma335
         private readonly int _ExtendsOffset;
         private readonly int _FieldListOffset;
         private readonly int _MethodListOffset;
+        private readonly int _EventListOffset;
+        private readonly int _PropertyListOffset;
         internal readonly int RowSize;
         internal MemoryBlock Block;
 
@@ -138,6 +142,8 @@ namespace System.Reflection.Metadata.Ecma335
             int numberOfRows,
             int fieldRefSize,
             int methodRefSize,
+            int eventRefSize,
+            int propertyRefSize,
             int typeDefOrRefRefSize,
             int stringHeapRefSize,
             MemoryBlock containingBlock,
@@ -146,6 +152,8 @@ namespace System.Reflection.Metadata.Ecma335
             this.NumberOfRows = numberOfRows;
             _IsFieldRefSizeSmall = fieldRefSize == 2;
             _IsMethodRefSizeSmall = methodRefSize == 2;
+            _IsEventRefSizeSmall = eventRefSize == 2;
+            _IsPropertyRefSizeSmall = propertyRefSize == 2;
             _IsTypeDefOrRefRefSizeSmall = typeDefOrRefRefSize == 2;
             _IsStringHeapRefSizeSmall = stringHeapRefSize == 2;
             _FlagsOffset = 0;
@@ -154,7 +162,9 @@ namespace System.Reflection.Metadata.Ecma335
             _ExtendsOffset = _NamespaceOffset + stringHeapRefSize;
             _FieldListOffset = _ExtendsOffset + typeDefOrRefRefSize;
             _MethodListOffset = _FieldListOffset + fieldRefSize;
-            this.RowSize = _MethodListOffset + methodRefSize;
+            _EventListOffset = _MethodListOffset + methodRefSize;
+            _PropertyListOffset = _EventListOffset + eventRefSize;
+            this.RowSize = _PropertyListOffset + propertyRefSize;
             this.Block = containingBlock.GetMemoryBlockAt(containingBlockOffset, this.RowSize * numberOfRows);
         }
 
@@ -198,6 +208,18 @@ namespace System.Reflection.Metadata.Ecma335
         {
             int rowOffset = (rowId - 1) * this.RowSize;
             return this.Block.PeekReference(rowOffset + _MethodListOffset, _IsMethodRefSizeSmall);
+        }
+
+        internal int GetEventStart(int rowId)
+        {
+            int rowOffset = (rowId - 1) * RowSize;
+            return Block.PeekReference(rowOffset + _EventListOffset, _IsEventRefSizeSmall);
+        }
+
+        internal int GetPropertyStart(int rowId)
+        {
+            int rowOffset = (rowId - 1) * RowSize;
+            return Block.PeekReference(rowOffset + _PropertyListOffset, _IsPropertyRefSizeSmall);
         }
 
         internal TypeDefinitionHandle FindTypeContainingMethod(int methodDefOrPtrRowId, int numberOfMethods)
@@ -269,6 +291,88 @@ namespace System.Reflection.Metadata.Ecma335
                     int newRow = row + 1;
                     value = this.GetFieldStart(newRow);
                     if (value == fieldDefOrPtrRowId)
+                    {
+                        row = newRow;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+
+            return TypeDefinitionHandle.FromRowId(row);
+        }
+
+        internal TypeDefinitionHandle FindTypeContainingEvent(int eventDefOrPtrRowId, int numberOfFields)
+        {
+            int numOfRows = NumberOfRows;
+            int slot = Block.BinarySearchForSlot(numOfRows, RowSize, _EventListOffset, (uint)eventDefOrPtrRowId, _IsEventRefSizeSmall);
+            int row = slot + 1;
+            if (row == 0)
+            {
+                return default;
+            }
+
+            if (row > numOfRows)
+            {
+                if (eventDefOrPtrRowId <= numberOfFields)
+                {
+                    return TypeDefinitionHandle.FromRowId(numOfRows);
+                }
+
+                return default;
+            }
+
+            int value = GetEventStart(row);
+            if (value == eventDefOrPtrRowId)
+            {
+                while (row < numOfRows)
+                {
+                    int newRow = row + 1;
+                    value = GetEventStart(newRow);
+                    if (value == eventDefOrPtrRowId)
+                    {
+                        row = newRow;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+
+            return TypeDefinitionHandle.FromRowId(row);
+        }
+
+        internal TypeDefinitionHandle FindTypeContainingProperty(int propertyDefOrPtrRowId, int numberOfFields)
+        {
+            int numOfRows = NumberOfRows;
+            int slot = Block.BinarySearchForSlot(numOfRows, RowSize, _PropertyListOffset, (uint)propertyDefOrPtrRowId, _IsPropertyRefSizeSmall);
+            int row = slot + 1;
+            if (row == 0)
+            {
+                return default;
+            }
+
+            if (row > numOfRows)
+            {
+                if (propertyDefOrPtrRowId <= numberOfFields)
+                {
+                    return TypeDefinitionHandle.FromRowId(numOfRows);
+                }
+
+                return default;
+            }
+
+            int value = GetPropertyStart(row);
+            if (value == propertyDefOrPtrRowId)
+            {
+                while (row < numOfRows)
+                {
+                    int newRow = row + 1;
+                    value = GetPropertyStart(newRow);
+                    if (value == propertyDefOrPtrRowId)
                     {
                         row = newRow;
                     }
@@ -1241,6 +1345,11 @@ namespace System.Reflection.Metadata.Ecma335
             int rowOffset = (rowId - 1) * this.RowSize;
             return EventDefinitionHandle.FromRowId(this.Block.PeekReference(rowOffset + _EventOffset, _IsEventTableRowRefSizeSmall));
         }
+
+        internal int GetRowIdForEventDefRow(int propertyDefRowId)
+        {
+            return Block.LinearSearchReference(RowSize, _EventOffset, (uint)propertyDefRowId, _IsEventTableRowRefSizeSmall) + 1;
+        }
     }
 
     internal struct EventTableReader
@@ -1374,6 +1483,11 @@ namespace System.Reflection.Metadata.Ecma335
         {
             int rowOffset = (rowId - 1) * this.RowSize;
             return PropertyDefinitionHandle.FromRowId(this.Block.PeekReference(rowOffset + _PropertyOffset, _IsPropertyTableRowRefSizeSmall));
+        }
+
+        internal int GetRowIdForPropertyDefRow(int propertyDefRowId)
+        {
+            return Block.LinearSearchReference(RowSize, _PropertyOffset, (uint)propertyDefRowId, _IsPropertyTableRowRefSizeSmall) + 1;
         }
     }
 
