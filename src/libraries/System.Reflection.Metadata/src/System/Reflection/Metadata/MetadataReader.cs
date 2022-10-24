@@ -1351,7 +1351,7 @@ namespace System.Reflection.Metadata
 
         internal TypeDefinitionHandle GetDeclaringType(EventDefinitionHandle eventDef)
         {
-            int eventRowId = UsePropertyPtrTable
+            int eventRowId = UseEventPtrTable
                 ? EventPtrTable.GetRowIdForEventDefRow(eventDef.RowId)
                 : eventDef.RowId;
 
